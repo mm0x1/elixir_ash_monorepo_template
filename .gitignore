@@ -1,0 +1,62 @@
+# The directory Mix will write compiled artifacts to.
+/_build/
+
+# If you run "mix test --cover", coverage assets end up here.
+/cover/
+
+# The directory Mix downloads your dependencies sources to.
+/deps/
+
+# Where 3rd-party dependencies like ExDoc output generated docs.
+/doc/
+
+# Ignore .fetch files in case you like to edit your project deps locally.
+/.fetch
+
+# If the VM crashes, it generates a dump, let's ignore it too.
+erl_crash.dump
+
+# Also ignore archive artifacts (built via "mix archive.build").
+*.ez
+
+# Temporary files, for example, from tests.
+/tmp/
+
+# Ignore package tarball (built via "mix hex.build").
+template_app-*.tar
+
+# Ignore assets that are produced by build tools.
+/priv/static/assets/
+
+# Ignore digested assets cache.
+/priv/static/cache_manifest.json
+
+# In case you use Node.js/npm, you want to ignore these.
+npm-debug.log
+/assets/node_modules/
+/frontend/node_modules/
+
+# Generated API files (development)
+/frontend/openapi.json
+/frontend/src/api/generated/
+
+
+# Env Vars
+.env
+
+# Dev Data
+data/
+
+.elixir_ls
+
+# Agentic AIs
+.aider*
+# Note: .claude/ and CLAUDE.md are tracked for team knowledge sharing
+# Remove these lines if you want them in the repo
+
+# Claude Code cache (never commit)
+.claude/cache/
+.claude/history/
+
+# Lefthook local configuration (optional override)
+lefthook-local.yml

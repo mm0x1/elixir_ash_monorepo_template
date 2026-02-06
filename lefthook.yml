@@ -1,0 +1,37 @@
+# Lefthook configuration for pre-commit hooks
+# Automatically checks code quality for both Elixir and frontend code
+
+pre-commit:
+  parallel: true
+  commands:
+    # Elixir formatting - auto-fix and stage changes
+    elixir-format:
+      glob: "{lib,test,config,priv}/**/*.{ex,exs}"
+      run: mix format {staged_files}
+      stage_fixed: true
+
+    # Elixir code quality - strict mode
+    elixir-credo:
+      glob: "{lib,test,config}/**/*.{ex,exs}"
+      run: mix credo --strict --all
+
+    # Elixir compilation - ensure no warnings
+    elixir-compile:
+      glob: "{lib,test,config}/**/*.{ex,exs}"
+      run: MIX_ENV=dev mix compile --warnings-as-errors
+
+    # Frontend linting - auto-fix and stage changes
+    frontend-lint:
+      glob: "frontend/**/*.{ts,tsx,js,jsx}"
+      root: "frontend/"
+      run: npm run lint:fix
+      stage_fixed: true
+
+    # TypeScript type checking
+    frontend-types:
+      glob: "frontend/**/*.{ts,tsx}"
+      root: "frontend/"
+      run: npx tsc --noEmit
+
+# Skip hooks with: LEFTHOOK=0 git commit
+# Run hooks manually: lefthook run pre-commit

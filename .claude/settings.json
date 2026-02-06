@@ -1,0 +1,56 @@
+{
+  "permissions": {
+    "allowed_commands": [
+      "git status",
+      "git diff",
+      "git add",
+      "git commit",
+      "git push",
+      "git branch",
+      "git log",
+      "git checkout",
+      "mix format",
+      "mix format --check-formatted",
+      "mix test",
+      "mix phx.server",
+      "mix ash.codegen",
+      "mix ash.setup",
+      "mix ecto.migrate",
+      "mix ecto.reset",
+      "mix deps.get",
+      "mix compile",
+      "mix clean",
+      "npm run format",
+      "npm run lint",
+      "npm run lint:fix",
+      "npm run typecheck",
+      "npm run build",
+      "npm run dev",
+      "npm test",
+      "npm install",
+      "gh pr create",
+      "gh pr list",
+      "gh pr view"
+    ]
+  },
+  "formatting": {
+    "elixir": "mix format",
+    "typescript": "cd frontend && npm run lint:fix"
+  },
+  "codegen": {
+    "ash_migrations": "mix ash.codegen"
+  },
+  "testing": {
+    "elixir": "MIX_ENV=test mix test",
+    "frontend": "cd frontend && npm test"
+  },
+  "project": {
+    "name": "TemplateApp",
+    "type": "phoenix-ash-inertia",
+    "elixir_version": "1.15+",
+    "phoenix_version": "1.8",
+    "ash_version": "3.0",
+    "frontend_framework": "react",
+    "styling": "tailwindcss-daisyui"
+  }
+}
