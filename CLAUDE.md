@@ -15,28 +15,46 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Commands
 
 ```bash
-# === SETUP ===
-# With Docker (recommended)
+# === SETUP (RECOMMENDED) ===
+# 1. Start database in Docker
+docker compose -f docker-compose.db.yml up -d
+
+# 2. Setup backend
+cd backend
+mix setup                         # Install deps, create DB, migrate, seed
+
+# 3. Setup frontend
+cd frontend
+npm install
+
+# === DEVELOPMENT (RECOMMENDED) ===
+# Run backend and frontend natively for faster iteration
+cd backend
+mix phx.server                    # Start server (localhost:4000)
+# OR with IEx shell:
+iex -S mix phx.server
+
+# In another terminal:
+cd frontend
+npm run dev                       # Start Vite dev server (localhost:5173)
+
+# === ALTERNATIVE: Full Docker Stack ===
+# If you prefer running everything in Docker:
 docker compose up                 # Start all services (db, backend, frontend)
 docker compose up -d              # Start in background
 
-# Without Docker
-cd backend && mix setup           # Backend setup (deps, db, seeds)
-cd frontend && npm install        # Frontend dependencies
-
-# === DEVELOPMENT ===
-# Backend (from backend/)
-mix phx.server                    # Start server (localhost:4000)
-iex -S mix phx.server             # Start with shell
-
-# Frontend (from frontend/)
-npm run dev                       # Start Vite dev server (localhost:5173)
-npm run build                     # Build for production
-
 # === DATABASE ===
+# Ensure database is running first:
+# docker compose -f docker-compose.db.yml up -d
+
 cd backend
 mix ecto.reset                    # Drop, create, migrate, seed
 mix ecto.migrate                  # Run migrations
+mix ecto.create                   # Create database
+mix ecto.drop                     # Drop database
+
+# Stop database when done:
+docker compose -f docker-compose.db.yml down
 
 # === ASH CODE GENERATION ===
 cd backend

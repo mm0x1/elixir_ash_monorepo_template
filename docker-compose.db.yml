@@ -1,0 +1,28 @@
+# Minimal Docker Compose for local development
+# Runs only the PostgreSQL database - backend and frontend run natively
+#
+# Usage:
+#   docker compose -f docker-compose.db.yml up -d
+#   cd backend && mix setup && mix phx.server
+#   cd frontend && npm install && npm run dev
+
+services:
+  database:
+    image: postgres:16-alpine
+    container_name: template_postgres
+    ports:
+      - "${DATABASE_PORT:-5432}:5432"
+    environment:
+      POSTGRES_USER: ${DATABASE_USERNAME:-postgres}
+      POSTGRES_PASSWORD: ${DATABASE_PASSWORD:-postgres}
+      POSTGRES_DB: ${DATABASE_NAME:-template_app_dev}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DATABASE_USERNAME:-postgres}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres_data:
