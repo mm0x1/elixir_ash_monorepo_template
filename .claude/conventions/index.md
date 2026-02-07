@@ -8,12 +8,12 @@
 
 | Rule | Severity | Source |
 |------|----------|--------|
-| Serialize Ash structs before Inertia | 🔴 Critical | elixir.md |
+| Never import from `$lib/generated/` in components | 🔴 Critical | typescript.md |
 | Pass `actor:` to all Ash operations | 🔴 Critical | elixir.md |
 | Policies are deny-by-default | 🔴 Critical | elixir.md |
 | No `any` type in TypeScript | 🔴 Critical | typescript.md |
-| BasePageProps needs index signature | 🔴 Critical | typescript.md |
-| Use `router.visit()`, not `router.replace()` | 🟡 Important | typescript.md |
+| Use Svelte 5 runes (`$state`, `$derived`, `$effect`) | 🔴 Critical | typescript.md |
+| API wrappers transform DTOs to UI types | 🟡 Important | typescript.md |
 | Extract at 3+ uses (Rule of Three) | 🟡 Important | pragmatic.md |
 | Pure functions at core, side effects at boundaries | 🟡 Important | functional.md |
 
@@ -25,8 +25,9 @@
 |-----------|---------|-----------|-----------|
 | New Ash resource | elixir.md | functional.md | pre-implementation.md |
 | Ash policy/action | elixir.md | pragmatic.md | code-review.md |
-| React component | typescript.md | functional.md | pre-implementation.md |
-| React hook | typescript.md | functional.md | code-review.md |
+| Svelte component | typescript.md | functional.md | pre-implementation.md |
+| API wrapper | typescript.md | functional.md | code-review.md |
+| SvelteKit route | typescript.md | pragmatic.md | pre-implementation.md |
 | Refactoring | pragmatic.md | functional.md | refactoring.md |
 | Full feature (E2E) | ALL | - | pre-implementation.md |
 | Code review | ALL | - | code-review.md |
@@ -39,17 +40,17 @@
 Elixir/Phoenix/Ash conventions including:
 - Pattern matching, pipes, guards, `with` statements
 - Phoenix controller patterns
-- Ash resources, actions, policies, serialization
-- Inertia integration helpers
+- Ash resources, actions, policies
+- ash_typescript RPC configuration
 - Testing with actors
 
 ### `typescript.md` (~7KB)
-TypeScript/React conventions including:
+TypeScript/Svelte conventions including:
 - Strict typing, avoiding `any`
-- React functional components and hooks
-- Inertia.js integration patterns
-- Zod schemas for runtime validation
-- Component testing approaches
+- Svelte 5 runes (`$state`, `$derived`, `$effect`, `$props`)
+- SvelteKit load functions and navigation
+- API boundary pattern (generated → api → components)
+- Zod input validation from ash_typescript
 
 ### `functional.md` (~6KB)
 Functional programming paradigm including:

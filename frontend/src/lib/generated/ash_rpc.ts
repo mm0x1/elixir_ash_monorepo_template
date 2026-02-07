@@ -639,14 +639,14 @@ export async function executeActionRpcRequest<T>(
 
 // User Typed Queries
 /**
- * Current user shape for Inertia page props
+ * Current user shape for frontend consumption
  *
  * @typedQuery true
  */
 export type CurrentUser = Array<InferResult<UserResourceSchema, ["id", "username", "is_anonymous", "role", "has_recovery_codes", "recovery_codes_count"]>>;
 
 /**
- * Current user shape for Inertia page props
+ * Current user shape for frontend consumption
  *
  * @typedQuery true
  */
@@ -742,6 +742,98 @@ export async function change_username<Fields extends ChangeUsernameFields | unde
   };
 
   return executeActionRpcRequest<ChangeUsernameResult<Fields extends undefined ? [] : Fields>>(
+    payload,
+    config
+  );
+}
+
+
+type GenerateRecoveryCodesSchema = Omit<UserResourceSchema, 'hashed_password' | 'recovery_codes_generated_at' | 'username_last_changed'>;
+
+export type GenerateRecoveryCodesFields = UnifiedFieldSelection<GenerateRecoveryCodesSchema>[];
+
+export type InferGenerateRecoveryCodesResult<
+  Fields extends GenerateRecoveryCodesFields | undefined,
+> = InferResult<GenerateRecoveryCodesSchema, Fields>;
+
+export type GenerateRecoveryCodesResult<Fields extends GenerateRecoveryCodesFields | undefined = undefined> = | { success: true; data: InferGenerateRecoveryCodesResult<Fields>; }
+| { success: false; errors: AshRpcError[]; }
+
+;
+
+/**
+ * Generate new recovery codes for the user. Returns the codes only once.
+ *
+ * @ashActionType :update
+ */
+export async function generate_recovery_codes<Fields extends GenerateRecoveryCodesFields | undefined = undefined>(
+  config: {
+  tenant?: string;
+  identity: UUID;
+  fields?: Fields;
+  headers?: Record<string, string>;
+  fetchOptions?: RequestInit;
+  customFetch?: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
+}
+): Promise<GenerateRecoveryCodesResult<Fields extends undefined ? [] : Fields>> {
+  const payload = {
+    action: "generate_recovery_codes",
+    ...(config.tenant !== undefined && { tenant: config.tenant }),
+    identity: config.identity,
+    ...(config.fields !== undefined && { fields: config.fields })
+  };
+
+  return executeActionRpcRequest<GenerateRecoveryCodesResult<Fields extends undefined ? [] : Fields>>(
+    payload,
+    config
+  );
+}
+
+
+export type ConvertToRegisteredInput = {
+  username: string;
+  password: string;
+  password_confirmation: string;
+};
+
+type ConvertToRegisteredSchema = Omit<UserResourceSchema, 'recovery_codes' | 'hashed_password' | 'recovery_codes_generated_at' | 'username_last_changed'>;
+
+export type ConvertToRegisteredFields = UnifiedFieldSelection<ConvertToRegisteredSchema>[];
+
+export type InferConvertToRegisteredResult<
+  Fields extends ConvertToRegisteredFields | undefined,
+> = InferResult<ConvertToRegisteredSchema, Fields>;
+
+export type ConvertToRegisteredResult<Fields extends ConvertToRegisteredFields | undefined = undefined> = | { success: true; data: InferConvertToRegisteredResult<Fields>; }
+| { success: false; errors: AshRpcError[]; }
+
+;
+
+/**
+ * Convert an anonymous user to a registered user with username and password.
+ *
+ * @ashActionType :update
+ */
+export async function convert_to_registered<Fields extends ConvertToRegisteredFields | undefined = undefined>(
+  config: {
+  tenant?: string;
+  identity: UUID;
+  input: ConvertToRegisteredInput;
+  fields?: Fields;
+  headers?: Record<string, string>;
+  fetchOptions?: RequestInit;
+  customFetch?: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
+}
+): Promise<ConvertToRegisteredResult<Fields extends undefined ? [] : Fields>> {
+  const payload = {
+    action: "convert_to_registered",
+    ...(config.tenant !== undefined && { tenant: config.tenant }),
+    identity: config.identity,
+    input: config.input,
+    ...(config.fields !== undefined && { fields: config.fields })
+  };
+
+  return executeActionRpcRequest<ConvertToRegisteredResult<Fields extends undefined ? [] : Fields>>(
     payload,
     config
   );

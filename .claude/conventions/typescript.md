@@ -1,6 +1,6 @@
-# TypeScript/React Conventions
+# TypeScript/Svelte Conventions
 
-**Apply these conventions to all TypeScript and React code in this project.**
+**Apply these conventions to all TypeScript and Svelte code in this project.**
 
 ---
 
@@ -79,18 +79,16 @@ type FetchState<T> =
   | { status: 'success'; data: T }
   | { status: 'error'; error: Error };
 
-function UserDisplay({ state }: { state: FetchState<User> }) {
-  switch (state.status) {
-    case 'idle':
-      return null;
-    case 'loading':
-      return <Loading />;
-    case 'success':
-      return <UserCard user={state.data} />;  // TypeScript knows data exists
-    case 'error':
-      return <ErrorMessage error={state.error} />;
-  }
-}
+// Usage in Svelte
+let state = $state<FetchState<User>>({ status: 'idle' });
+
+{#if state.status === 'loading'}
+  <Loading />
+{:else if state.status === 'success'}
+  <UserCard user={state.data} />
+{:else if state.status === 'error'}
+  <ErrorMessage error={state.error} />
+{/if}
 
 // 🔴 NO: Separate booleans allow invalid states
 interface BadState {
@@ -118,303 +116,322 @@ const config = {
 
 ---
 
-## React Patterns
+## Svelte 5 Patterns
 
-### Functional Components Only
+### Runes (CRITICAL)
 
-**Principle**: No class components except for Error Boundaries (React limitation).
+**Principle**: Use Svelte 5 runes, not legacy reactive statements.
 
-```typescript
-// 🟢 YES: Functional component
-function UserProfile({ user }: UserProfileProps) {
-  const [editing, setEditing] = useState(false);
+```svelte
+<!-- 🔴 NO: Svelte 4 legacy syntax -->
+<script>
+  let count = 0;
+  $: doubled = count * 2;
+  $: console.log('count changed', count);
+</script>
 
-  return (
-    <div>
-      {editing ? <EditForm user={user} /> : <DisplayCard user={user} />}
-    </div>
-  );
-}
+<!-- 🟢 YES: Svelte 5 runes -->
+<script lang="ts">
+  let count = $state(0);
+  let doubled = $derived(count * 2);
 
-// 🔴 NO: Class component (except ErrorBoundary)
-class UserProfile extends React.Component { ... }
+  $effect(() => {
+    console.log('count changed', count);
+  });
+</script>
 ```
 
-### Hook Rules
+### Component Props
 
-**Principle**: Follow React's rules of hooks strictly.
+**Principle**: Use `$props()` with TypeScript interface.
 
-```typescript
-// 🔴 CRITICAL: Hooks at top level, not in conditionals
-// 🔴 NO
-function Component({ show }: Props) {
-  if (show) {
-    const [value, setValue] = useState('');  // Violates hook rules
+```svelte
+<script lang="ts">
+  interface Props {
+    userId: string;
+    userName: string;
+    onSave?: (id: string) => void;
+    children?: import('svelte').Snippet;
   }
-}
 
-// 🟢 YES: Always call hooks at top level
-function Component({ show }: Props) {
-  const [value, setValue] = useState('');
+  let { userId, userName, onSave, children }: Props = $props();
+</script>
 
-  if (!show) return null;
-
-  return <Input value={value} onChange={setValue} />;
-}
+<div>
+  <h1>{userName}</h1>
+  {#if children}
+    {@render children()}
+  {/if}
+  {#if onSave}
+    <button onclick={() => onSave(userId)}>Save</button>
+  {/if}
+</div>
 ```
 
-### Dependency Arrays
+### State Management
 
-**Principle**: Include all dependencies. Use `useCallback`/`useMemo` strategically.
+**Principle**: Use `$state` for reactive state, `$derived` for computed values.
 
-```typescript
-// 🟢 YES: All dependencies listed
-useEffect(() => {
-  fetchUser(userId);
-}, [userId, fetchUser]);
+```svelte
+<script lang="ts">
+  // 🟢 YES: $state for mutable values
+  let count = $state(0);
+  let user = $state<User | null>(null);
+  let items = $state<Item[]>([]);
 
-// 🟢 YES: useCallback for stable references
-const handleSubmit = useCallback((data: FormData) => {
-  submitForm(data, userId);
-}, [userId, submitForm]);
+  // 🟢 YES: $derived for computed values
+  let doubled = $derived(count * 2);
+  let isLoggedIn = $derived(user !== null);
+  let itemCount = $derived(items.length);
 
-// 🟡 Recommended: useMemo for expensive computations
-const sortedItems = useMemo(
-  () => items.sort((a, b) => a.name.localeCompare(b.name)),
-  [items]
-);
-
-// 🔴 NO: Missing dependencies
-useEffect(() => {
-  fetchUser(userId);  // userId missing from deps
-}, []);
+  // 🟢 YES: $derived.by for complex computations
+  let sortedItems = $derived.by(() => {
+    return [...items].sort((a, b) => a.name.localeCompare(b.name));
+  });
+</script>
 ```
 
-### Early Returns
+### Effects
 
-**Principle**: Handle edge cases first, then render main content.
+**Principle**: Use `$effect` for side effects that depend on reactive values.
 
-```typescript
-// 🟢 YES: Early returns for clarity
-function UserList({ users, isLoading, error }: Props) {
-  if (isLoading) return <Loading />;
-  if (error) return <ErrorState error={error} />;
-  if (users.length === 0) return <EmptyState />;
+```svelte
+<script lang="ts">
+  let userId = $props().userId;
+  let user = $state<User | null>(null);
 
-  return (
-    <ul>
-      {users.map(user => <UserItem key={user.id} user={user} />)}
-    </ul>
-  );
-}
-
-// 🔴 NO: Nested conditionals in JSX
-function UserList({ users, isLoading, error }: Props) {
-  return (
-    <div>
-      {isLoading ? (
-        <Loading />
-      ) : error ? (
-        <ErrorState error={error} />
-      ) : users.length === 0 ? (
-        <EmptyState />
-      ) : (
-        <ul>{users.map(...)}</ul>
-      )}
-    </div>
-  );
-}
-```
-
-### Named Handler Functions
-
-**Principle**: Extract handlers for readability and debugging.
-
-```typescript
-// 🟢 YES: Named handlers
-function LoginForm() {
-  const { data, setData, post, processing } = useForm({
-    email: '',
-    password: '',
+  // 🟢 YES: Effect for data fetching
+  $effect(() => {
+    fetchUser(userId).then((u) => (user = u));
   });
 
-  function handleEmailChange(e: ChangeEvent<HTMLInputElement>) {
-    setData('email', e.target.value);
-  }
+  // 🟢 YES: Effect with cleanup
+  $effect(() => {
+    const interval = setInterval(() => console.log('tick'), 1000);
+    return () => clearInterval(interval);
+  });
 
-  function handleSubmit(e: FormEvent) {
-    e.preventDefault();
-    post('/sign-in');
-  }
-
-  return (
-    <form onSubmit={handleSubmit}>
-      <input value={data.email} onChange={handleEmailChange} />
-      <button disabled={processing}>Sign In</button>
-    </form>
-  );
-}
-
-// 🔴 NO: Complex inline handlers
-<button onClick={(e) => {
-  e.preventDefault();
-  validateForm();
-  if (isValid) {
-    submitData();
-    trackEvent('form_submit');
-  }
-}}>
+  // 🔴 NO: Side effects in $derived
+  let data = $derived({
+    fetch('/api/data'); // Don't do this!
+    return count * 2;
+  });
+</script>
 ```
 
-### Component Composition
+### Event Handlers
 
-**Principle**: Prefer composition and props over prop drilling.
+**Principle**: Use inline handlers or named functions. No `on:` directive in Svelte 5.
+
+```svelte
+<script lang="ts">
+  let count = $state(0);
+
+  function handleClick() {
+    count += 1;
+  }
+
+  function handleKeydown(event: KeyboardEvent) {
+    if (event.key === 'Enter') {
+      handleClick();
+    }
+  }
+</script>
+
+<!-- 🟢 YES: Svelte 5 syntax -->
+<button onclick={handleClick}>Click me</button>
+<button onclick={() => count += 1}>Inline</button>
+<input onkeydown={handleKeydown} />
+
+<!-- 🔴 NO: Svelte 4 syntax -->
+<button on:click={handleClick}>Click me</button>
+```
+
+### Control Flow
+
+**Principle**: Use Svelte's built-in control flow blocks.
+
+```svelte
+<!-- 🟢 YES: If blocks -->
+{#if loading}
+  <Loading />
+{:else if error}
+  <ErrorMessage {error} />
+{:else}
+  <Content {data} />
+{/if}
+
+<!-- 🟢 YES: Each blocks with key -->
+{#each items as item (item.id)}
+  <ItemCard {item} />
+{/each}
+
+<!-- 🟢 YES: Await blocks for promises -->
+{#await promise}
+  <Loading />
+{:then data}
+  <Content {data} />
+{:catch error}
+  <ErrorMessage {error} />
+{/await}
+```
+
+### Bindings
+
+**Principle**: Use `bind:` for two-way data binding.
+
+```svelte
+<script lang="ts">
+  let name = $state('');
+  let checked = $state(false);
+  let selected = $state('');
+</script>
+
+<input bind:value={name} />
+<input type="checkbox" bind:checked />
+<select bind:value={selected}>
+  <option value="a">A</option>
+  <option value="b">B</option>
+</select>
+```
+
+---
+
+## API Boundary Pattern
+
+### Never Import Generated Directly
+
+**Principle**: Components import from `$lib/api/`, never from `$lib/generated/`.
 
 ```typescript
-// 🟢 YES: Composition with children
-function Card({ children, title }: CardProps) {
-  return (
-    <div className="card">
-      <h2>{title}</h2>
-      {children}
-    </div>
-  );
+// 🔴 NO: Direct import of generated types
+import { get_user, UserSchema } from "$lib/generated/ash_rpc";
+
+// 🟢 YES: Import from api boundary
+import { fetchUser } from "$lib/api/accounts";
+import type { User } from "$lib/types/user";
+```
+
+### API Wrapper Structure
+
+**Principle**: API wrappers transform DTOs to UI types and inject auth.
+
+```typescript
+// frontend/src/lib/api/accounts.ts
+import { get_user, change_username } from "$lib/generated/ash_rpc";
+import { getAuthHeaders, ApiError } from "$lib/api/client";
+import type { User } from "$lib/types/user";
+
+function toUser(dto: Record<string, unknown>): User {
+  return {
+    id: dto.id as string,
+    displayName: dto.username as string,
+    isGuest: dto.is_anonymous as boolean,
+    role: dto.role as User["role"],
+  };
 }
 
-function UserCard({ user }: { user: User }) {
-  return (
-    <Card title={user.name}>
-      <p>{user.email}</p>
-      <UserActions user={user} />
-    </Card>
-  );
-}
+export async function fetchUser(userId: string): Promise<User> {
+  const result = await get_user({
+    input: { id: userId },
+    headers: getAuthHeaders(),
+  });
 
-// 🟢 YES: Context for deeply shared state
-const UserContext = createContext<User | null>(null);
+  if (!result.success) {
+    throw new ApiError(result.errors);
+  }
 
-function useUser() {
-  const user = useContext(UserContext);
-  if (!user) throw new Error('useUser must be within UserProvider');
-  return user;
+  return toUser(result.data);
 }
 ```
 
 ---
 
-## Inertia.js Integration
+## SvelteKit Patterns
 
-### BasePageProps (CRITICAL)
+### Load Functions
 
-**Principle**: All page props must extend BasePageProps with index signature.
+**Principle**: Use load functions for data fetching, not effects in components.
 
 ```typescript
-// 🔴 CRITICAL: Index signature required for Inertia compatibility
-interface BasePageProps {
-  errors?: Record<string, string | string[]>;
-  flash?: FlashMessages;
-  [key: string]: unknown;  // Required for Inertia
-}
+// 🟢 YES: Load function in +page.ts
+// frontend/src/routes/users/[id]/+page.ts
+import { fetchUser } from '$lib/api/accounts';
+import type { PageLoad } from './$types';
 
-// 🟢 YES: Page props extend BasePageProps
-interface UserPageProps extends BasePageProps {
-  user: User;
-  canEdit: boolean;
-}
-
-export default function UserPage({ user, canEdit }: UserPageProps) {
-  // ...
-}
+export const load: PageLoad = async ({ params }) => {
+  const user = await fetchUser(params.id);
+  return { user };
+};
 ```
 
-### Router Usage (CRITICAL)
+```svelte
+<!-- 🟢 YES: Component receives data from load -->
+<script lang="ts">
+  import type { PageData } from './$types';
 
-**Principle**: Use `router.visit()` with options, not `router.replace()`.
+  let { data }: { data: PageData } = $props();
+</script>
 
-```typescript
-// 🔴 CRITICAL: Correct router usage
-// 🟢 YES
-router.visit('/users', { replace: true });
-router.visit('/users', { preserveState: true, preserveScroll: true });
-
-// 🔴 NO: router.replace doesn't exist
-router.replace('/users');  // This will fail
+<h1>{data.user.displayName}</h1>
 ```
 
-### Typed Page Hook
+### Layout Data
 
-**Principle**: Use typed page hook for type-safe prop access.
+**Principle**: Share data across routes using layout load functions.
 
 ```typescript
-// 🟢 YES: Typed page access
-import { useTypedPage } from '@/lib/inertia';
+// frontend/src/routes/+layout.ts
+import { get } from 'svelte/store';
+import { currentUser } from '$lib/auth/store';
+import type { LayoutLoad } from './$types';
 
-function UserPage() {
-  const { props } = useTypedPage<UserPageProps>();
-  const { user, canEdit } = props;
-
-  return <UserDisplay user={user} editable={canEdit} />;
-}
+export const load: LayoutLoad = async () => {
+  const user = get(currentUser);
+  return { user };
+};
 ```
 
-### useForm Pattern
+### Navigation
 
-**Principle**: Use Inertia's useForm for form state and submission.
+**Principle**: Use `goto` for programmatic navigation, links for declarative.
 
-```typescript
-// 🟢 YES: useForm for forms
-function CreateUserForm() {
-  const { data, setData, post, processing, errors } = useForm({
-    email: '',
-    username: '',
-    password: '',
-  });
+```svelte
+<script lang="ts">
+  import { goto } from '$app/navigation';
 
-  function handleSubmit(e: FormEvent) {
-    e.preventDefault();
-    post('/users');
+  async function handleSave() {
+    await saveData();
+    goto('/dashboard');
   }
+</script>
 
-  return (
-    <form onSubmit={handleSubmit}>
-      <TextField
-        name="email"
-        value={data.email}
-        onChange={(e) => setData('email', e.target.value)}
-        error={errors.email}
-      />
-      <Button type="submit" loading={processing}>
-        Create User
-      </Button>
-    </form>
-  );
-}
+<!-- Declarative navigation -->
+<a href="/dashboard">Dashboard</a>
+
+<!-- Programmatic navigation -->
+<button onclick={handleSave}>Save and Continue</button>
 ```
 
 ---
 
 ## Type Safety Patterns
 
-### Zod for Runtime Validation
+### Zod for Input Validation
 
-**Principle**: Use Zod schemas for runtime validation of external data.
+**Principle**: Use generated Zod schemas for form validation.
 
 ```typescript
-// 🟢 YES: Zod schema for API responses
-import { z } from 'zod';
+// Generated schemas are in ash_rpc.ts, re-export through api/
+import { validateChangeUsername } from "$lib/api/accounts";
 
-const UserSchema = z.object({
-  id: z.string().uuid(),
-  email: z.string().email(),
-  username: z.string().min(3),
-});
-
-type User = z.infer<typeof UserSchema>;
-
-async function fetchUser(id: string): Promise<User> {
-  const response = await fetch(`/api/users/${id}`);
-  const data = await response.json();
-  return UserSchema.parse(data);  // Throws if invalid
+async function handleSubmit() {
+  const validation = validateChangeUsername({ username });
+  if (!validation.success) {
+    errors = validation.errors;
+    return;
+  }
+  // Submit...
 }
 ```
 
@@ -445,67 +462,6 @@ try {
 }
 ```
 
-### Branded Types
-
-**Principle**: Use branded types to prevent mixing similar primitives.
-
-```typescript
-// 🟢 YES: Branded types for IDs
-type UserId = string & { readonly brand: unique symbol };
-type PostId = string & { readonly brand: unique symbol };
-
-function getUser(id: UserId): User { ... }
-function getPost(id: PostId): Post { ... }
-
-// Now these are type errors:
-getUser(postId);  // Error: PostId not assignable to UserId
-getPost(userId);  // Error: UserId not assignable to PostId
-```
-
----
-
-## Testing Patterns
-
-### Component Testing
-
-```typescript
-// 🟢 YES: Test user-visible behavior
-import { render, screen, fireEvent } from '@testing-library/react';
-
-test('displays user name', () => {
-  render(<UserCard user={mockUser} />);
-  expect(screen.getByText(mockUser.name)).toBeInTheDocument();
-});
-
-test('calls onEdit when edit button clicked', () => {
-  const onEdit = vi.fn();
-  render(<UserCard user={mockUser} onEdit={onEdit} />);
-
-  fireEvent.click(screen.getByRole('button', { name: /edit/i }));
-
-  expect(onEdit).toHaveBeenCalledWith(mockUser.id);
-});
-```
-
-### Mocking Inertia
-
-```typescript
-// 🟢 YES: Mock Inertia's usePage
-vi.mock('@inertiajs/react', () => ({
-  usePage: () => ({
-    props: {
-      user: mockUser,
-      flash: {},
-      errors: {},
-    },
-  }),
-  router: {
-    visit: vi.fn(),
-    post: vi.fn(),
-  },
-}));
-```
-
 ---
 
 ## Common Mistakes
@@ -513,10 +469,10 @@ vi.mock('@inertiajs/react', () => ({
 | Mistake | Fix |
 |---------|-----|
 | Using `any` | Use proper type or `unknown` with guards |
-| Missing `[key: string]: unknown` in BasePageProps | Add index signature |
-| Using `router.replace()` | Use `router.visit(url, { replace: true })` |
-| Hooks in conditionals | Move hooks to top level |
-| Missing dependency array items | Include all dependencies |
-| Inline complex handlers | Extract to named functions |
-| Not handling loading/error states | Always show appropriate UI states |
-| Class components | Use functional components (except ErrorBoundary) |
+| Using `$:` reactive statements | Use `$derived` or `$effect` |
+| Using `on:click` | Use `onclick` (Svelte 5) |
+| Importing from `$lib/generated/` in components | Import from `$lib/api/` |
+| Fetching data in `$effect` | Use SvelteKit load functions when possible |
+| Using legacy Svelte stores in components | Use `$state` and `$derived` runes |
+| Missing cleanup in effects | Return cleanup function from `$effect` |
+| Complex inline handlers | Extract to named functions |

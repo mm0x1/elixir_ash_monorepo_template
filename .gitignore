@@ -1,17 +1,21 @@
+# =============================================================================
+# Backend (Elixir/Phoenix)
+# =============================================================================
+
 # The directory Mix will write compiled artifacts to.
-/_build/
+/backend/_build/
 
 # If you run "mix test --cover", coverage assets end up here.
-/cover/
+/backend/cover/
 
 # The directory Mix downloads your dependencies sources to.
-/deps/
+/backend/deps/
 
 # Where 3rd-party dependencies like ExDoc output generated docs.
-/doc/
+/backend/doc/
 
 # Ignore .fetch files in case you like to edit your project deps locally.
-/.fetch
+/backend/.fetch
 
 # If the VM crashes, it generates a dump, let's ignore it too.
 erl_crash.dump
@@ -20,43 +24,83 @@ erl_crash.dump
 *.ez
 
 # Temporary files, for example, from tests.
-/tmp/
+/backend/tmp/
 
 # Ignore package tarball (built via "mix hex.build").
 template_app-*.tar
 
 # Ignore assets that are produced by build tools.
-/priv/static/assets/
+/backend/priv/static/assets/
 
 # Ignore digested assets cache.
-/priv/static/cache_manifest.json
+/backend/priv/static/cache_manifest.json
 
-# In case you use Node.js/npm, you want to ignore these.
-npm-debug.log
-/assets/node_modules/
+# Elixir LS
+/backend/.elixir_ls/
+
+# =============================================================================
+# Frontend (SvelteKit)
+# =============================================================================
+
+# Dependencies
 /frontend/node_modules/
 
-# Generated API files (development)
-/frontend/openapi.json
-/frontend/src/api/generated/
+# Build output
+/frontend/build/
+/frontend/.svelte-kit/
 
+# Generated API files (ash_typescript output)
+/frontend/src/lib/generated/
 
-# Env Vars
+# npm debug
+npm-debug.log
+
+# =============================================================================
+# Environment & Secrets
+# =============================================================================
+
+# Env Vars (never commit secrets)
 .env
+.env.local
+.env.*.local
 
-# Dev Data
+# =============================================================================
+# IDE & Editor
+# =============================================================================
+
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# =============================================================================
+# OS Files
+# =============================================================================
+
+.DS_Store
+Thumbs.db
+
+# =============================================================================
+# Development Data
+# =============================================================================
+
 data/
 
-.elixir_ls
+# =============================================================================
+# AI/Agentic Tools
+# =============================================================================
 
-# Agentic AIs
 .aider*
 # Note: .claude/ and CLAUDE.md are tracked for team knowledge sharing
-# Remove these lines if you want them in the repo
 
 # Claude Code cache (never commit)
 .claude/cache/
 .claude/history/
+
+# =============================================================================
+# Git Hooks
+# =============================================================================
 
 # Lefthook local configuration (optional override)
 lefthook-local.yml

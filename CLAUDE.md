@@ -6,172 +6,294 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Stack
 
-- **Backend**: Phoenix 1.8, Ash 3.0, PostgreSQL
-- **Frontend**: React 19, TypeScript, Vite, TailwindCSS 4.1, DaisyUI
-- **Routing**: Inertia.js v2 (server-driven SPA)
-- **Auth**: AshAuthentication (session-based)
+- **Backend**: Phoenix 1.8, Ash 3.0, PostgreSQL (in `backend/`)
+- **Frontend**: SvelteKit 2, Svelte 5, TypeScript, Vite, Tailwind CSS 4 (in `frontend/`)
+- **Data Layer**: ash_typescript generates TypeScript client, types, Zod input schemas
+- **Auth**: Hybrid token (short-lived access tokens + DB-backed refresh tokens)
+- **Architecture**: Monorepo with API-only backend + SPA frontend
 
 ## Commands
 
 ```bash
-# Setup
-mix setup                        # Full setup (deps, db, assets)
-mix deps.get                     # Elixir dependencies
-cd frontend && npm install       # Frontend dependencies
+# === SETUP ===
+# With Docker (recommended)
+docker compose up                 # Start all services (db, backend, frontend)
+docker compose up -d              # Start in background
 
-# Development
-mix phx.server                   # Start server (localhost:4000)
-iex -S mix phx.server            # Start with shell
+# Without Docker
+cd backend && mix setup           # Backend setup (deps, db, seeds)
+cd frontend && npm install        # Frontend dependencies
 
-# Database
-mix ecto.reset                   # Drop, create, migrate, seed
-mix ecto.migrate                 # Run migrations
+# === DEVELOPMENT ===
+# Backend (from backend/)
+mix phx.server                    # Start server (localhost:4000)
+iex -S mix phx.server             # Start with shell
 
-# Ash Code Generation
-mix ash.codegen                  # Generate migrations from Ash resources
-mix ash.codegen --check          # Check if codegen is needed (CI)
-mix ash.codegen --dev            # Generate with dev-only options
-mix ash.codegen --dry-run        # Preview changes without applying
+# Frontend (from frontend/)
+npm run dev                       # Start Vite dev server (localhost:5173)
+npm run build                     # Build for production
 
-# Testing
-mix test                         # Run Elixir tests
-cd frontend && npm test          # Run frontend tests once (CI mode)
-cd frontend && npm run test:unit # Run tests in watch mode
+# === DATABASE ===
+cd backend
+mix ecto.reset                    # Drop, create, migrate, seed
+mix ecto.migrate                  # Run migrations
 
-# Code quality
-mix quality                      # Run all quality checks (format, credo, compile, lint)
-mix quality.fix                  # Auto-fix formatting and linting
-mix credo                        # Code quality analysis
-mix credo --strict               # Strict mode with all checks
-mix format                       # Format Elixir
-cd frontend && npm run lint      # Lint frontend
-cd frontend && npm run lint:fix  # Auto-fix linting issues
-cd frontend && npm run build     # Build frontend
-mise exec -- lefthook run pre-commit  # Run git hooks manually
+# === ASH CODE GENERATION ===
+cd backend
+mix ash.codegen                   # Generate migrations from Ash resources
+mix ash_typescript.generate       # Regenerate TypeScript client (ash_rpc.ts)
+
+# === TESTING ===
+cd backend && mix test            # Run Elixir tests
+cd frontend && npm run check      # Run svelte-check (type checking)
+
+# === CODE QUALITY ===
+cd backend
+mix quality                       # Run all quality checks (format, credo, compile)
+mix quality.fix                   # Auto-fix formatting issues
+mix credo --strict                # Strict Credo analysis
+mix format                        # Format Elixir
+
+cd frontend
+npm run lint                      # Lint frontend
+npm run lint:fix                  # Auto-fix linting issues
+
+# === GIT HOOKS ===
+mise exec -- lefthook run pre-commit  # Run hooks manually
+LEFTHOOK=0 git commit ...             # Skip hooks (emergency only)
 ```
-
-## Git Hooks
-
-Pre-commit hooks (via Lefthook) automatically check:
-- Elixir formatting (`mix format`) and Credo quality checks
-- Frontend linting (ESLint) and TypeScript type checking
-- Code compiles without warnings
-
-Hooks auto-fix formatting and linting issues, then stage the fixed files.
-
-Skip hooks in emergencies: `LEFTHOOK=0 git commit`
 
 ## Project Structure
 
 ```
-lib/template_app/
-├── config/                      # App configuration
-├── core/                        # Repo, mailer, secrets
-├── logging/                     # Logging infrastructure
-└── domains/
-    └── accounts/                # User domain (DDD pattern)
-        ├── resources/
-        │   ├── user.ex          # User resource
-        │   ├── token.ex         # Auth tokens
-        │   ├── permission.ex    # Permissions
-        │   └── user_permission.ex
-        ├── changes/             # Ash changes
-        ├── validations/         # Custom validations
-        ├── checks/              # Policy checks
-        └── accounts.ex          # Domain definition
-
-lib/template_app_web/
-├── controllers/                 # Inertia controllers
-├── helpers/                     # Controller helpers
-├── plugs/                       # Auth plugs
-├── serializers/                 # JSON serialization
-└── router/router.ex             # Routes
-
-frontend/src/
-├── pages/                       # Inertia pages
-├── components/
-│   ├── ui/                      # Button/, Loading/, Brand/
-│   ├── forms/                   # FormField, TextField, SelectField
-│   └── patterns/                # EmptyState, LoadingState, etc.
-├── lib/
-│   ├── logger/                  # Logging (dev console, prod POST)
-│   ├── inertia/                 # useTypedPage, useFlash, usePageErrors
-│   ├── store/notifications/     # useNotifications
-│   ├── hooks/                   # useLocalStorage, useDebounce, etc.
-│   ├── format/                  # formatDate, formatNumber, etc.
-│   └── url/                     # buildUrl, useQueryParams
-├── layouts/                     # Layout components
-└── types/                       # TypeScript types
+/
+├── backend/                         # Phoenix/Ash API
+│   ├── lib/template_app/
+│   │   ├── auth/                    # JWT token generation
+│   │   ├── config/                  # App configuration
+│   │   ├── core/                    # Repo, mailer, secrets
+│   │   ├── logging/                 # Logging infrastructure
+│   │   └── domains/
+│   │       └── accounts/            # User domain (DDD pattern)
+│   │           ├── resources/
+│   │           │   ├── user.ex      # User resource
+│   │           │   ├── token.ex     # Auth tokens
+│   │           │   └── refresh_token.ex
+│   │           ├── changes/         # Ash changes
+│   │           ├── validations/     # Custom validations
+│   │           ├── checks/          # Policy checks
+│   │           └── accounts.ex      # Domain with typescript_rpc config
+│   ├── lib/template_app_web/
+│   │   ├── controllers/
+│   │   │   ├── rpc_controller.ex    # ash_typescript RPC (run/validate)
+│   │   │   ├── auth_controller.ex   # Login, refresh, logout
+│   │   │   └── health_controller.ex
+│   │   ├── plugs/
+│   │   │   └── validate_access_token.ex
+│   │   └── router/router.ex         # API routes only
+│   ├── config/
+│   ├── priv/
+│   └── mix.exs
+│
+├── frontend/                        # SvelteKit SPA
+│   ├── src/
+│   │   ├── lib/
+│   │   │   ├── generated/           # ash_typescript output (PRIVATE)
+│   │   │   │   └── ash_rpc.ts       # Generated types + RPC functions
+│   │   │   ├── api/                 # API boundary (DTO → UI transforms)
+│   │   │   │   ├── accounts.ts      # Account API wrappers
+│   │   │   │   ├── client.ts        # Auth headers, error handling
+│   │   │   │   └── index.ts
+│   │   │   ├── types/               # UI types (consumed by components)
+│   │   │   │   └── user.ts
+│   │   │   ├── auth/                # Auth stores + refresh logic
+│   │   │   ├── stores/              # Svelte stores
+│   │   │   └── components/          # Shared components
+│   │   └── routes/                  # SvelteKit pages
+│   │       ├── +layout.svelte
+│   │       ├── +page.svelte
+│   │       ├── auth/
+│   │       └── profile/
+│   ├── static/
+│   ├── svelte.config.js
+│   └── package.json
+│
+├── docker-compose.yml               # Development orchestration
+├── docker-compose.prod.yml          # Production overrides
+├── .env.example                     # Environment template
+└── MIGRATION_PLAN.md                # Architecture documentation
 ```
 
 ## Architecture Patterns
 
-### Domain-Driven Design with Ash
+### ash_typescript RPC (Data Layer)
 
-The backend uses Ash Framework for business logic, organized by domain (e.g., `accounts`). Each domain contains:
-- **Resources**: Data models with actions, policies, and validations
-- **Changes**: Custom change modules for complex transformations
-- **Validations**: Custom validation logic
-- **Checks**: Policy check modules for authorization
-
-### Inertia.js SPA Pattern
-
-Inertia creates a single-page app experience with server-side routing:
-- Controllers in `lib/template_app_web/controllers/` handle requests
-- Controllers serialize data and pass it to React pages via `render_inertia/2`
-- React pages in `frontend/src/pages/` receive props and render UI
-- Navigation uses `router.visit()` for client-side transitions
-
-### Key Integration Points
-
-1. **Controller → Page**: Use `assign_prop/3` to pass serialized data to Inertia pages
-2. **Page → Controller**: Use `useForm()` or `router.visit()` to submit data back
-3. **Ash → Controller**: Query Ash resources with `actor: current_user` for authorization
-4. **Controller → Ash**: Always serialize Ash structs before passing to Inertia (see serializers/)
-
-## Critical Rules
-
-See `.claude/conventions.md` for full details. Most critical:
-
-1. **Serialize Ash structs** - Never pass raw Ash structs to Inertia (use serializers)
-2. **Pass actor to Ash** - All Ash operations need `actor: current_user` for policies
-3. **BasePageProps index signature** - Must include `[key: string]: unknown` for TypeScript
-4. **Use router.visit()** - Not `router.replace()` - use `router.visit(url, { replace: true })`
-5. **Policies are deny-by-default** - Explicitly allow actions in Ash resources
-
-## Key Patterns
-
-### Inertia Controller
+The entire data layer is generated by ash_typescript. Each domain defines what's exposed:
 
 ```elixir
-def index(conn, _params) do
-  user = conn.assigns.current_user
-  items = fetch_items(user)
+# backend/lib/template_app/domains/accounts/accounts.ex
+defmodule TemplateApp.Domains.Accounts do
+  use Ash.Domain,
+    otp_app: :template_app,
+    extensions: [AshTypescript.Rpc]
 
-  conn
-  |> assign_prop(:items, Enum.map(items, &serialize/1))
-  |> render_inertia("Items/Index")
+  typescript_rpc do
+    namespace "accounts"
+
+    resource User do
+      typed_query :current_user, :read do
+        fields [:id, :username, :role, :is_anonymous]
+      end
+
+      rpc_action :get_user, :by_id do
+        get? true
+      end
+
+      rpc_action :change_username, :change_username
+    end
+  end
 end
 ```
 
-### Inertia Page
+The RPC controller is minimal (~20 lines):
 
-```tsx
-import type { BasePageProps } from "@/lib/inertia";
+```elixir
+# backend/lib/template_app_web/controllers/rpc_controller.ex
+def run(conn, params) do
+  result = AshTypescript.Rpc.run_action(:template_app, conn, params)
+  json(conn, result)
+end
+```
 
-interface Props extends BasePageProps {
-  items: Item[];
+### API Boundary Pattern
+
+**Generated types are PRIVATE.** Components never import from `$lib/generated/` directly.
+
+```
+┌────────────────────────────────────────────────────────────────┐
+│  Components / Routes                                            │
+│  (import from $lib/api/ and $lib/types/ only)                  │
+├────────────────────────────────────────────────────────────────┤
+│  $lib/types/         │  $lib/api/                               │
+│  UI types            │  Wrappers: DTO → UI transforms           │
+│  (User, etc.)        │  Auth header injection                   │
+│                      │  Error handling                          │
+├──────────────────────┼─────────────────────────────────────────┤
+│                      │  $lib/generated/ash_rpc.ts               │
+│    ESLint BLOCKS     │  (PRIVATE - only api/ imports this)      │
+│    direct imports    │  Generated: functions, DTOs, Zod schemas │
+└──────────────────────┴─────────────────────────────────────────┘
+```
+
+Example API wrapper:
+
+```typescript
+// frontend/src/lib/api/accounts.ts
+import { get_user } from "$lib/generated/ash_rpc";
+import { getAuthHeaders } from "$lib/api/client";
+import type { User } from "$lib/types/user";
+
+function toUser(dto: Record<string, unknown>): User {
+  return {
+    id: dto.id as string,
+    displayName: dto.username as string,
+    isGuest: dto.is_anonymous as boolean,
+    role: dto.role as User["role"],
+  };
 }
 
-export default function Index({ items }: Props) {
-  return (
-    <div>
-      {items.map((i) => (
-        <div key={i.id}>{i.name}</div>
-      ))}
-    </div>
-  );
+export async function fetchUser(userId: string): Promise<User> {
+  const result = await get_user({
+    input: { id: userId },
+    headers: getAuthHeaders(),
+  });
+
+  if (!result.success) {
+    throw new ApiError(result.errors);
+  }
+
+  return toUser(result.data);
 }
+```
+
+### Hybrid Token Authentication
+
+| Token | Lifetime | Storage | Validation | Purpose |
+|-------|----------|---------|------------|---------|
+| Access Token | 15 min | Svelte store (memory) | Stateless JWT | Every RPC call |
+| Refresh Token | 7 days | HttpOnly cookie | Database | Only `/auth/refresh` |
+
+```typescript
+// frontend/src/lib/auth/store.ts
+export const accessToken = writable<string | null>(null);
+export const currentUser = writable<User | null>(null);
+
+export async function login(username: string, password: string) {
+  const res = await fetch(`${API_URL}/auth/login`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ username, password }),
+    credentials: "include", // Required for HttpOnly cookie
+  });
+
+  const { access_token, user } = await res.json();
+  accessToken.set(access_token);
+  currentUser.set(user);
+}
+```
+
+## Critical Rules
+
+1. **Never import from `$lib/generated/`** outside `$lib/api/` (ESLint enforced)
+2. **Pass actor to Ash** - All Ash operations need `actor: current_user` for policies
+3. **Policies are deny-by-default** - Explicitly allow actions in Ash resources
+4. **API wrappers transform DTOs** - UI gets clean types, not generated DTOs
+5. **Auth headers via `getAuthHeaders()`** - Never hardcode Bearer tokens
+6. **Use Svelte 5 runes** - `$state`, `$derived`, `$effect`, `$props` (not legacy stores in components)
+
+## Key Patterns
+
+### Svelte 5 Component
+
+```svelte
+<script lang="ts">
+  import { fetchUser } from '$lib/api/accounts';
+  import type { User } from '$lib/types/user';
+
+  interface Props {
+    userId: string;
+  }
+
+  let { userId }: Props = $props();
+  let user = $state<User | null>(null);
+  let loading = $state(true);
+
+  $effect(() => {
+    loading = true;
+    fetchUser(userId)
+      .then((u) => (user = u))
+      .finally(() => (loading = false));
+  });
+</script>
+
+{#if loading}
+  <p>Loading...</p>
+{:else if user}
+  <h1>{user.displayName}</h1>
+{/if}
+```
+
+### SvelteKit Load Function
+
+```typescript
+// frontend/src/routes/profile/[id]/+page.ts
+import { fetchUser } from '$lib/api/accounts';
+import type { PageLoad } from './$types';
+
+export const load: PageLoad = async ({ params }) => {
+  const user = await fetchUser(params.id);
+  return { user };
+};
 ```
 
 ### Ash Resource
@@ -208,9 +330,9 @@ end
 
 ## Documentation
 
-| File                               | Purpose                    | Update when...                                    |
-| ---------------------------------- | -------------------------- | ------------------------------------------------- |
-| `CLAUDE.md`                        | Project overview & setup   | Stack changes, new domains, architecture shifts   |
-| `.claude/conventions/`             | Coding style rules         | Style decisions change, new patterns emerge       |
-| `.claude/docs.md`                  | Patterns, gotchas, lessons | You fix bugs, discover edge cases, learn patterns |
-| `.claude/checklists/`              | Pre/post implementation    | Development workflow changes                      |
+| File | Purpose | Update when... |
+|------|---------|----------------|
+| `CLAUDE.md` | Project overview & setup | Stack changes, new domains |
+| `.claude/conventions/` | Coding style rules | Style decisions change |
+| `.claude/docs.md` | Patterns, gotchas, lessons | You fix bugs, discover edge cases |
+| `MIGRATION_PLAN.md` | Full architecture docs | Architecture decisions change |

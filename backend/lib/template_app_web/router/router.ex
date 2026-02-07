@@ -1,0 +1,104 @@
+defmodule TemplateAppWeb.Router do
+  use TemplateAppWeb, :router
+  use AshAuthentication.Phoenix.Router
+
+  alias TemplateAppWeb.Plugs.EnsureAuthenticatedPlug
+  alias TemplateAppWeb.Plugs.EnsureAdminPlug
+  alias TemplateAppWeb.Plugs.ValidateAccessToken
+  alias TemplateAppWeb.Helpers.ConnHelpers
+
+  defp redirect_if_authenticated(conn, _opts) do
+    if ConnHelpers.get_current_user(conn) do
+      conn
+      |> redirect(to: "/")
+      |> halt()
+    else
+      conn
+    end
+  end
+
+  # Browser pipeline for admin/dev routes (session-based)
+  pipeline :browser do
+    plug :accepts, ["html", "json"]
+    plug :fetch_session
+    plug :fetch_live_flash
+    plug :protect_from_forgery
+    plug :put_secure_browser_headers
+    plug :load_from_session
+  end
+
+  pipeline :require_authenticated_user do
+    plug EnsureAuthenticatedPlug
+  end
+
+  pipeline :require_unauthenticated_user do
+    plug :redirect_if_authenticated
+  end
+
+  pipeline :require_admin do
+    plug EnsureAdminPlug
+  end
+
+  # API pipeline for JSON-only endpoints with CORS
+  pipeline :api do
+    plug :accepts, ["json"]
+    plug :fetch_cookies
+    plug CORSPlug
+  end
+
+  # Token-based authentication pipeline
+  pipeline :authenticated_api do
+    plug ValidateAccessToken
+  end
+
+  # Public auth endpoints (no token required)
+  scope "/auth", TemplateAppWeb do
+    pipe_through [:api]
+
+    post "/login", AuthController, :login
+    post "/register", AuthController, :register
+    post "/refresh", AuthController, :refresh
+  end
+
+  # Authenticated auth endpoints (token required)
+  scope "/auth", TemplateAppWeb do
+    pipe_through [:api, :authenticated_api]
+
+    post "/logout", AuthController, :logout
+    post "/logout_all", AuthController, :logout_all
+    get "/me", AuthController, :me
+  end
+
+  # RPC endpoint for ash_typescript client-side data fetching (token-based auth)
+  scope "/rpc", TemplateAppWeb do
+    pipe_through [:api, :authenticated_api]
+
+    post "/run", RpcController, :run
+    post "/validate", RpcController, :validate
+  end
+
+  # Health check endpoint
+  scope "/", TemplateAppWeb do
+    pipe_through [:api]
+
+    get "/health", HealthController, :index
+  end
+
+  if Application.compile_env(:template_app, :dev_routes) do
+    import Phoenix.LiveDashboard.Router
+    import AshAdmin.Router
+
+    scope "/dev" do
+      pipe_through [:browser]
+
+      live_dashboard "/dashboard", metrics: TemplateAppWeb.Telemetry
+      forward "/mailbox", Plug.Swoosh.MailboxPreview
+    end
+
+    scope "/admin" do
+      pipe_through [:browser, :require_authenticated_user, :require_admin]
+
+      ash_admin "/"
+    end
+  end
+end

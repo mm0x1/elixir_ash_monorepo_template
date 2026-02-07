@@ -2,59 +2,130 @@
 
 ## Quick Reference
 
-| Area     | Tech                      | Notes             |
-| -------- | ------------------------- | ----------------- |
-| Backend  | Phoenix 1.8 + Ash 3.0     | Elixir 1.15+      |
-| Frontend | React 19 + TypeScript     | Vite build        |
-| Routing  | Inertia.js v2             | Server-driven SPA |
-| Database | PostgreSQL                | AshPostgres       |
-| Styling  | TailwindCSS 4.1 + DaisyUI |                   |
-| Auth     | AshAuthentication + JWT   | Session-based     |
+| Area | Tech | Notes |
+|------|------|-------|
+| Backend | Phoenix 1.8 + Ash 3.0 | Elixir 1.17+ in `backend/` |
+| Frontend | SvelteKit 2 + Svelte 5 | TypeScript in `frontend/` |
+| Data Layer | ash_typescript RPC | Generates TypeScript client |
+| Database | PostgreSQL | AshPostgres |
+| Styling | Tailwind CSS 4 | No component library yet |
+| Auth | Hybrid JWT tokens | Access (memory) + Refresh (HttpOnly) |
 
 ---
 
 ## Gotchas & Lessons Learned
 
-### TypeScript + Inertia.js
+### ash_typescript
 
-**BasePageProps must have index signature:**
+**Never build custom RPC clients:**
+ash_typescript generates complete TypeScript functions per action. Don't reinvent the wheel.
 
-```typescript
-// WRONG - causes TS2344 error with usePage<T>()
-interface BasePageProps {
-  errors?: Record<string, ErrorValue>;
-  flash?: FlashMessages;
-}
+**conn.assigns.current_user must be a full user struct:**
+```elixir
+# WRONG - ash_typescript needs the full struct for actor resolution
+assign(conn, :current_user, user_id)
 
-// CORRECT - Inertia's PageProps requires index signature
-interface BasePageProps {
-  errors?: Record<string, ErrorValue>;
-  flash?: FlashMessages;
-  [key: string]: unknown; // Required!
-}
+# CORRECT
+assign(conn, :current_user, user_struct)
 ```
 
-**Inertia router.replace() doesn't take options:**
+**Monorepo path configuration:**
+```elixir
+# backend/config/config.exs
+config :ash_typescript,
+  output_file: "../frontend/src/lib/generated/ash_rpc.ts",
+  source_path_prefix: "backend"  # Makes JSDoc links point to backend/lib/...
+```
 
+### API Boundary
+
+**Generated types are private:**
 ```typescript
-// WRONG - router.replace only takes URL
-router.replace(url, { preserveState: true });
+// WRONG - leaking generated types
+import { UserSchema } from "$lib/generated/ash_rpc";
 
-// CORRECT - use router.visit with replace option
-router.visit(url, { preserveState: true, preserveScroll: true, replace: true });
+// CORRECT - use api/ wrapper
+import { fetchUser } from "$lib/api/accounts";
+import type { User } from "$lib/types/user";
+```
+
+**No response Zod schemas needed:**
+ash_typescript controls both type generation AND backend serialization. They're always in sync.
+
+### Svelte 5 Runes
+
+**Use runes, not legacy reactive statements:**
+```svelte
+<!-- WRONG - Svelte 4 style -->
+<script>
+  let count = 0;
+  $: doubled = count * 2;
+</script>
+
+<!-- CORRECT - Svelte 5 runes -->
+<script lang="ts">
+  let count = $state(0);
+  let doubled = $derived(count * 2);
+</script>
+```
+
+**Props use $props():**
+```svelte
+<script lang="ts">
+  interface Props {
+    userId: string;
+    onSave?: () => void;
+  }
+
+  let { userId, onSave }: Props = $props();
+</script>
+```
+
+**Effects for side effects:**
+```svelte
+<script lang="ts">
+  let userId = $props().userId;
+
+  $effect(() => {
+    // Runs when userId changes
+    fetchUser(userId);
+  });
+</script>
+```
+
+### Hybrid Token Auth
+
+**Access tokens in memory, refresh tokens in HttpOnly cookies:**
+```typescript
+// Login sets HttpOnly cookie automatically via credentials: "include"
+const res = await fetch("/auth/login", {
+  method: "POST",
+  credentials: "include",  // REQUIRED
+  body: JSON.stringify({ username, password }),
+});
+
+// Access token stored in Svelte store (memory)
+accessToken.set(res.access_token);
+```
+
+**Silent refresh on 401:**
+```typescript
+// Intercept 401s and refresh
+if (response.status === 401) {
+  await refreshAccessToken();
+  // Retry original request
+}
 ```
 
 ### Ash Framework
 
 **UUID Generation:**
-
 ```elixir
 Ash.UUID.generate()    # Standard UUID v4
-Ash.UUIDv7.generate()  # UUID v7
+Ash.UUIDv7.generate()  # UUID v7 (time-sortable)
 ```
 
 **Complex updates need atomic disabled:**
-
 ```elixir
 update :complex_update do
   require_atomic? false
@@ -62,21 +133,8 @@ end
 ```
 
 **Always pass actor for authorization:**
-
 ```elixir
 Ash.create!(changeset, actor: current_user)
-```
-
-### Inertia Controllers
-
-**Always serialize Ash structs:**
-
-```elixir
-# WRONG - Ash structs contain non-serializable data
-conn |> assign_prop(:user, user) |> render_inertia("Profile")
-
-# CORRECT
-conn |> assign_prop(:user, serialize_user(user)) |> render_inertia("Profile")
 ```
 
 ---
@@ -84,210 +142,159 @@ conn |> assign_prop(:user, serialize_user(user)) |> render_inertia("Profile")
 ## File Organization
 
 ```
-lib/template_app/
-├── core/                    # App core (repo, mailer)
-├── config/                  # Configuration
-└── domains/                 # Ash domains (DDD)
+backend/lib/template_app/
+├── auth/                        # JWT token generation
+├── core/                        # App core (repo, mailer)
+├── config/                      # Configuration
+└── domains/                     # Ash domains (DDD)
     └── accounts/
-        ├── resources/       # Ash resources
-        ├── changes/         # Custom changes
-        ├── validations/     # Custom validations
-        └── checks/          # Policy checks
+        ├── resources/           # Ash resources
+        ├── changes/             # Custom changes
+        ├── validations/         # Custom validations
+        └── checks/              # Policy checks
 
-lib/template_app_web/
-├── controllers/             # Inertia controllers
-├── helpers/                 # Controller helpers
-└── plugs/                   # Custom plugs
+backend/lib/template_app_web/
+├── controllers/                 # API controllers
+│   ├── rpc_controller.ex        # ash_typescript RPC
+│   └── auth_controller.ex       # Login, refresh, logout
+├── plugs/                       # Custom plugs
+│   └── validate_access_token.ex
+└── router/router.ex             # API-only routes
 
 frontend/src/
-├── pages/                   # Inertia page components
-├── components/
-│   ├── ui/                  # Base UI (Button/, Loading/, Brand/)
-│   ├── forms/               # Form components (FormField, TextField, SelectField)
-│   ├── patterns/            # UI patterns (EmptyState, LoadingState, ErrorState, Pagination)
-│   └── navigation/          # Nav components
-├── layouts/                 # Layout wrappers
 ├── lib/
-│   ├── logger/              # Logging service (dev console, prod POST /api/logs)
-│   ├── inertia/             # Typed hooks (useTypedPage, useFlash, usePageErrors)
-│   ├── store/notifications/ # Notification context (useNotifications)
-│   ├── hooks/               # Common hooks (useLocalStorage, useDebounce, etc.)
-│   ├── format/              # Formatters (date, number, string)
-│   └── url/                 # URL utils (buildUrl, useQueryParams)
-├── test/
-│   └── utils.tsx            # Test utilities (renderWithProviders, mockPageProps)
-└── types/
-    └── common.ts            # Shared types (BasePageProps)
+│   ├── generated/               # ash_typescript output (PRIVATE)
+│   ├── api/                     # API boundary (DTO → UI transforms)
+│   ├── types/                   # UI type definitions
+│   ├── auth/                    # Auth stores + refresh logic
+│   ├── stores/                  # Svelte stores
+│   └── components/              # Shared components
+└── routes/                      # SvelteKit pages
 ```
 
 ---
 
 ## Patterns
 
-### Ash Resource
+### Ash Resource with RPC
 
 ```elixir
-defmodule TemplateApp.Domains.MyDomain.Resources.MyResource do
-  use Ash.Resource,
-    domain: TemplateApp.Domains.MyDomain,
-    data_layer: AshPostgres.DataLayer
+defmodule TemplateApp.Domains.MyDomain do
+  use Ash.Domain,
+    otp_app: :template_app,
+    extensions: [AshTypescript.Rpc]
 
-  postgres do
-    table "my_resources"
-    repo TemplateApp.Repo
-  end
+  typescript_rpc do
+    namespace "items"
 
-  attributes do
-    uuid_primary_key :id
-    attribute :name, :string, allow_nil?: false
-    timestamps()
-  end
-
-  actions do
-    defaults [:read, :destroy]
-    create :create do
-      accept [:name]
-      change relate_actor(:creator)
+    resource Item do
+      rpc_action :list_items, :read
+      rpc_action :get_item, :by_id do
+        get? true
+      end
+      rpc_action :create_item, :create
     end
   end
-
-  policies do
-    policy action(:read), authorize_if: always()
-    policy action([:create, :update, :destroy]), authorize_if: actor_present()
-  end
 end
 ```
 
-### Inertia Controller
+### API Wrapper
 
-```elixir
-def index(conn, _params) do
-  items = fetch_items(conn.assigns.current_user)
-  conn
-  |> assign_prop(:items, Enum.map(items, &serialize/1))
-  |> render_inertia("Items/Index")
-end
-```
+```typescript
+// frontend/src/lib/api/items.ts
+import { list_items, create_item } from "$lib/generated/ash_rpc";
+import { getAuthHeaders, handleApiError } from "$lib/api/client";
+import type { Item } from "$lib/types/item";
 
-### React Page
-
-```tsx
-import { Head } from "@inertiajs/react";
-import type { BasePageProps } from "@/types/common";
-
-interface Props extends BasePageProps {
-  items: Item[];
+function toItem(dto: Record<string, unknown>): Item {
+  return {
+    id: dto.id as string,
+    name: dto.name as string,
+    createdAt: new Date(dto.created_at as string),
+  };
 }
 
-export default function Index({ items }: Props) {
-  return (
-    <>
-      <Head title="Items" />
-      <div>
-        {items.map((item) => (
-          <div key={item.id}>{item.name}</div>
-        ))}
-      </div>
-    </>
-  );
+export async function fetchItems(): Promise<Item[]> {
+  const result = await list_items({ headers: getAuthHeaders() });
+  if (!result.success) throw handleApiError(result.errors);
+  return result.data.map(toItem);
+}
+
+export async function createItem(name: string): Promise<Item> {
+  const result = await create_item({
+    input: { name },
+    headers: getAuthHeaders(),
+  });
+  if (!result.success) throw handleApiError(result.errors);
+  return toItem(result.data);
 }
 ```
 
-### Form with Inertia
-
-```tsx
-import { useForm } from "@inertiajs/react";
-
-export default function CreateItem() {
-  const { data, setData, post, processing, errors } = useForm({ name: "" });
-
-  return (
-    <form
-      onSubmit={(e) => {
-        e.preventDefault();
-        post("/items");
-      }}
-    >
-      <input
-        value={data.name}
-        onChange={(e) => setData("name", e.target.value)}
-      />
-      {errors.name && <span className="text-error">{errors.name}</span>}
-      <button type="submit" disabled={processing}>
-        Create
-      </button>
-    </form>
-  );
-}
-```
-
----
-
-## Frontend Utilities
-
-### Logger
+### Svelte Page with Load Function
 
 ```typescript
-import { logger } from "@/lib/logger";
-logger.debug("Dev only"); // Console in dev
-logger.info("Dev only"); // Console in dev
-logger.warn("Warning"); // Console + POST /api/logs in prod
-logger.error("Error", { ctx }); // Console + POST /api/logs in prod (redacted)
+// frontend/src/routes/items/+page.ts
+import { fetchItems } from '$lib/api/items';
+import type { PageLoad } from './$types';
+
+export const load: PageLoad = async () => {
+  const items = await fetchItems();
+  return { items };
+};
 ```
 
-### Typed Inertia Hooks
+```svelte
+<!-- frontend/src/routes/items/+page.svelte -->
+<script lang="ts">
+  import type { PageData } from './$types';
 
-```typescript
-import { useTypedPage, useFlash, usePageErrors } from "@/lib/inertia";
+  let { data }: { data: PageData } = $props();
+</script>
 
-const { props } = useTypedPage<MyPageProps>();
-const flash = useFlash(); // { success?, error?, info?, warning? }
-const { errors, hasErrors, getErrorMessage } = usePageErrors();
+<h1>Items</h1>
+<ul>
+  {#each data.items as item}
+    <li>{item.name}</li>
+  {/each}
+</ul>
 ```
 
-### Notifications (no UI - apps provide their own)
+### Form with Validation
 
-```typescript
-import { useNotifications } from "@/lib/store/notifications";
+```svelte
+<script lang="ts">
+  import { goto } from '$app/navigation';
+  import { createItem } from '$lib/api/items';
 
-const { success, error, warning, info, notifications, removeNotification } =
-  useNotifications();
-success("Saved!");
-error("Failed", 10000); // 10s duration
-```
+  let name = $state('');
+  let error = $state<string | null>(null);
+  let loading = $state(false);
 
-### Common Hooks
+  async function handleSubmit(e: Event) {
+    e.preventDefault();
+    loading = true;
+    error = null;
 
-```typescript
-import {
-  useLocalStorage,
-  useDebounce,
-  useCopyToClipboard,
-  useMediaQuery,
-} from "@/lib/hooks";
+    try {
+      await createItem(name);
+      goto('/items');
+    } catch (err) {
+      error = err instanceof Error ? err.message : 'Failed to create item';
+    } finally {
+      loading = false;
+    }
+  }
+</script>
 
-const [value, setValue] = useLocalStorage("key", defaultValue);
-const debouncedSearch = useDebounce(searchTerm, 300);
-const { copied, copy } = useCopyToClipboard();
-const isMobile = useMediaQuery("(max-width: 768px)");
-```
-
-### Formatting
-
-```typescript
-import {
-  formatDate,
-  formatRelativeTime,
-  formatNumber,
-  truncate,
-  pluralize,
-} from "@/lib/format";
-
-formatDate(date, { format: "long" }); // "January 4, 2026"
-formatRelativeTime(date); // "2 hours ago"
-formatNumber(1234.5, { style: "currency", currency: "USD" }); // "$1,234.50"
-truncate("Long text", 10); // "Long te..."
-pluralize(5, "item"); // "5 items"
+<form onsubmit={handleSubmit}>
+  <input bind:value={name} placeholder="Item name" />
+  {#if error}
+    <p class="error">{error}</p>
+  {/if}
+  <button type="submit" disabled={loading}>
+    {loading ? 'Creating...' : 'Create'}
+  </button>
+</form>
 ```
 
 ---
@@ -295,10 +302,12 @@ pluralize(5, "item"); // "5 items"
 ## Checklist Before Implementing
 
 - [ ] Does this need a new Ash action, or do existing actions suffice?
-- [ ] Should this be server-side (Inertia) or client-side (React Query)?
-- [ ] Is all data serialized before passing to Inertia?
+- [ ] Is `rpc_action` defined in the domain's `typescript_rpc` block?
+- [ ] Have I run `mix ash_typescript.generate` after adding actions?
+- [ ] Is the API wrapper in `$lib/api/`, not importing generated directly in components?
 - [ ] Are Ash policies defined? (deny-by-default)
 - [ ] Is the actor passed to Ash calls?
+- [ ] Am I using Svelte 5 runes (`$state`, `$derived`, `$effect`, `$props`)?
 
 ---
 
@@ -311,7 +320,7 @@ The Svelte MCP plugin provides documentation lookup and code analysis for Svelte
 **svelte-file-editor Subagent**: A specialized subagent for creating, editing, and reviewing Svelte files.
 
 Benefits:
-- Has its own context window, allowing it to fetch documentation, iterate with the `svelte-autofixer` tool, and write to the file system without consuming main agent context
+- Has its own context window for fetching docs and iterating with `svelte-autofixer`
 - Delegation happens automatically when appropriate
 - Can be explicitly requested for Svelte-related tasks
 
