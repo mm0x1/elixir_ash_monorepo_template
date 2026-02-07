@@ -19,7 +19,7 @@ defmodule TemplateApp.Domains.Accounts do
 
     resource User do
       typed_query :current_user, :read do
-        description "Current user shape for Inertia page props"
+        description "Current user shape for frontend consumption"
         ts_result_type_name "CurrentUser"
         ts_fields_const_name "CURRENT_USER_FIELDS"
         fields [:id, :username, :is_anonymous, :role, :has_recovery_codes, :recovery_codes_count]

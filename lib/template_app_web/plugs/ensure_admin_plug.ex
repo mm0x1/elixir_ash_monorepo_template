@@ -1,11 +1,12 @@
 defmodule TemplateAppWeb.Plugs.EnsureAdminPlug do
   @moduledoc """
   Ensures the current user has admin or superadmin role.
-  Redirects to home page with an error message if not authorized.
+
+  For browser routes: Redirects to home page with error.
+  For API routes: Returns 403 JSON response.
   """
   import Plug.Conn
   import Phoenix.Controller
-  import TemplateAppWeb.Helpers.InertiaHelpers, only: [error_flash: 2]
 
   alias TemplateAppWeb.Helpers.ConnHelpers
 
@@ -17,10 +18,24 @@ defmodule TemplateAppWeb.Plugs.EnsureAdminPlug do
     if user && user.role in [:admin, :superadmin] do
       conn
     else
-      conn
-      |> error_flash("You must be an administrator to access this page.")
-      |> redirect(to: "/")
-      |> halt()
+      if api_request?(conn) do
+        conn
+        |> put_status(:forbidden)
+        |> json(%{error: "Forbidden"})
+        |> halt()
+      else
+        conn
+        |> put_flash(:error, "You must be an administrator to access this page.")
+        |> redirect(to: "/")
+        |> halt()
+      end
+    end
+  end
+
+  defp api_request?(conn) do
+    case get_req_header(conn, "accept") do
+      [accept | _] -> String.contains?(accept, "application/json")
+      _ -> false
     end
   end
 end

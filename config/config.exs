@@ -154,9 +154,6 @@ config :logger,
 # Use Jason for JSON parsing in Phoenix
 config :phoenix, :json_library, Jason
 
-config :phoenix_live_view, :colocated_js,
-  target_directory: Path.expand("../frontend/node_modules/phoenix-colocated", __DIR__)
-
 config :ash_typescript,
   otp_app: :template_app,
   output_file: "frontend/src/lib/generated/ash_rpc.ts",
@@ -164,15 +161,6 @@ config :ash_typescript,
   validate_endpoint: "/rpc/validate",
   input_field_formatter: :snake_case,
   output_field_formatter: :snake_case
-
-config :inertia,
-  endpoint: TemplateAppWeb.Endpoint,
-  static_paths: ["/assets/main.js"],
-  default_version: "1",
-  camelize_props: false,
-  history: [encrypt: false],
-  ssr: false,
-  raise_on_ssr_failure: config_env() != :prod
 
 # Import environment specific config. This must remain at the bottom
 # of this file so it overrides the configuration defined above.

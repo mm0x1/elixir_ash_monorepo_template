@@ -37,17 +37,7 @@ config :template_app, TemplateAppWeb.Endpoint,
     same_site: "Lax"
   ],
   watchers: [
-    tailwind: {Tailwind, :install_and_run, [:template_app, ~w(--watch)]},
-    npx: [
-      "vite",
-      "build",
-      "--mode",
-      "development",
-      "--watch",
-      "--config",
-      "vite.config.js",
-      cd: Path.expand("../frontend", __DIR__)
-    ]
+    tailwind: {Tailwind, :install_and_run, [:template_app, ~w(--watch)]}
   ]
 
 # ## SSL Support

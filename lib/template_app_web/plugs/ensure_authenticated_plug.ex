@@ -1,10 +1,12 @@
 defmodule TemplateAppWeb.Plugs.EnsureAuthenticatedPlug do
   @moduledoc """
   Ensures the user is authenticated before allowing access to a route.
+
+  For browser routes: Redirects to sign-in page.
+  For API routes: Returns 401 JSON response.
   """
   import Plug.Conn
   import Phoenix.Controller
-  import TemplateAppWeb.Helpers.InertiaHelpers, only: [error_flash: 2]
 
   alias TemplateAppWeb.Helpers.ConnHelpers
 
@@ -14,10 +16,24 @@ defmodule TemplateAppWeb.Plugs.EnsureAuthenticatedPlug do
     if ConnHelpers.get_current_user(conn) do
       conn
     else
-      conn
-      |> error_flash("You must be signed in to access this page.")
-      |> redirect(to: "/auth/sign-in")
-      |> halt()
+      if api_request?(conn) do
+        conn
+        |> put_status(:unauthorized)
+        |> json(%{error: "Unauthorized"})
+        |> halt()
+      else
+        conn
+        |> put_flash(:error, "You must be signed in to access this page.")
+        |> redirect(to: "/auth/sign-in")
+        |> halt()
+      end
+    end
+  end
+
+  defp api_request?(conn) do
+    case get_req_header(conn, "accept") do
+      [accept | _] -> String.contains?(accept, "application/json")
+      _ -> false
     end
   end
 end

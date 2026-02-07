@@ -10,7 +10,7 @@ defmodule TemplateApp.MixProject do
       start_permanent: Mix.env() == :prod,
       aliases: aliases(),
       deps: deps(),
-      compilers: [:phoenix_live_view] ++ Mix.compilers(),
+      compilers: Mix.compilers(),
       listeners: [Phoenix.CodeReloader],
       consolidate_protocols: Mix.env() != :dev
     ]
@@ -73,7 +73,6 @@ defmodule TemplateApp.MixProject do
       {:dns_cluster, "~> 0.2.0"},
       {:bandit, "~> 1.8"},
       {:argon2_elixir, "~> 4.1"},
-      {:inertia, "~> 2.6"},
       {:ash_rate_limiter, "~> 0.2"},
       {:tidewave, "~> 0.5", only: :dev},
       {:mox, "~> 1.0", only: :test},

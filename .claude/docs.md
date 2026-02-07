@@ -302,4 +302,19 @@ pluralize(5, "item"); // "5 items"
 
 ---
 
+## AI Tooling
+
+### Svelte MCP Plugin
+
+The Svelte MCP plugin provides documentation lookup and code analysis for Svelte 5 development.
+
+**svelte-file-editor Subagent**: A specialized subagent for creating, editing, and reviewing Svelte files.
+
+Benefits:
+- Has its own context window, allowing it to fetch documentation, iterate with the `svelte-autofixer` tool, and write to the file system without consuming main agent context
+- Delegation happens automatically when appropriate
+- Can be explicitly requested for Svelte-related tasks
+
+---
+
 _Update this doc when you discover patterns, fix bugs, or learn from mistakes._

@@ -44,7 +44,6 @@ defmodule TemplateAppWeb do
 
       import Plug.Conn
       import Phoenix.LiveView.Controller
-      import Inertia.Controller
 
       unquote(verified_routes())
     end
@@ -74,8 +73,6 @@ defmodule TemplateAppWeb do
       import Phoenix.Controller,
         only: [get_csrf_token: 0, view_module: 1, view_template: 1]
 
-      import Inertia.HTML
-
       # Include general helpers for rendering HTML
       unquote(html_helpers())
     end
@@ -88,12 +85,9 @@ defmodule TemplateAppWeb do
 
       # HTML escaping functionality
       import Phoenix.HTML
-      # Core UI components
-      import TemplateAppWeb.CoreComponents
 
       # Common modules used in templates
       alias Phoenix.LiveView.JS
-      alias TemplateAppWeb.Layouts
 
       # Routes generation with the ~p sigil
       unquote(verified_routes())
