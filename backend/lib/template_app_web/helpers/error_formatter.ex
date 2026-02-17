@@ -306,15 +306,17 @@ defmodule TemplateAppWeb.Helpers.ErrorFormatter do
     end
   end
 
-  # Detect authentication failures nested within Forbidden errors
+  # Detect authentication failures (wrong credentials) nested within Forbidden errors.
+  # AshAuthentication wraps credential failures as :forbidden class errors, but HTTP
+  # convention is 401 (unauthenticated) rather than 403 (unauthorised) for bad credentials.
   defp authentication_failure?(%Ash.Error.Forbidden{errors: errors}) when is_list(errors) do
     Enum.any?(errors, &authentication_failure?/1)
   end
 
   defp authentication_failure?(%{class: :forbidden} = error) do
-    # Check if it's an AshAuthentication error
-    error_module = error.__struct__ |> Module.split() |> List.first()
-    error_module == "AshAuthentication"
+    error.__struct__
+    |> Module.split()
+    |> List.starts_with?(["AshAuthentication"])
   end
 
   defp authentication_failure?(_), do: false

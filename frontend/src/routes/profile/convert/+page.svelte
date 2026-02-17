@@ -13,6 +13,19 @@
 	let fieldErrors = $state<Record<string, string[]>>({});
 	let loading = $state(false);
 
+	const baseInputClass =
+		'mt-1 block w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm disabled:opacity-50';
+
+	let usernameInputClass = $derived(
+		`${baseInputClass} ${fieldErrors.username?.length ? 'border-red-500' : 'border-gray-300'}`
+	);
+	let passwordInputClass = $derived(
+		`${baseInputClass} ${fieldErrors.password?.length ? 'border-red-500' : 'border-gray-300'}`
+	);
+	let confirmInputClass = $derived(
+		`${baseInputClass} ${fieldErrors.password_confirmation?.length ? 'border-red-500' : 'border-gray-300'}`
+	);
+
 	// Redirect non-guests to profile
 	onMount(() => {
 		if (!$currentUser) {
@@ -95,9 +108,7 @@
 							required
 							bind:value={username}
 							disabled={loading}
-							class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm disabled:opacity-50 {fieldErrors.username?.length
-								? 'border-red-500'
-								: ''}"
+							class={usernameInputClass}
 							placeholder="Choose a username"
 						/>
 						{#if fieldErrors.username?.length}
@@ -114,9 +125,7 @@
 							required
 							bind:value={password}
 							disabled={loading}
-							class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm disabled:opacity-50 {fieldErrors.password?.length
-								? 'border-red-500'
-								: ''}"
+							class={passwordInputClass}
 							placeholder="Create a password"
 						/>
 						{#if fieldErrors.password?.length}
@@ -135,9 +144,7 @@
 							required
 							bind:value={passwordConfirmation}
 							disabled={loading}
-							class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm disabled:opacity-50 {fieldErrors.password_confirmation?.length
-								? 'border-red-500'
-								: ''}"
+							class={confirmInputClass}
 							placeholder="Confirm your password"
 						/>
 						{#if fieldErrors.password_confirmation?.length}

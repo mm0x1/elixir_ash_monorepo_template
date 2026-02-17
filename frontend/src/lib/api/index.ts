@@ -1,13 +1,9 @@
-// API client utilities
-export {
-	API_URL,
-	getAuthHeaders,
-	createAuthFetch,
-	ApiError,
-	mapFieldErrors,
-	ensureValidToken,
-	resetRefreshAttempts
-} from './client';
+// Base HTTP utilities
+export { API_URL, getAuthHeaders, ApiError, mapFieldErrors } from './client';
+
+// Ash RPC helpers (auth-retry wrapper, header builder)
+export { callRpc, rpcHeaders } from './rpc';
+export type { AshResult } from './rpc';
 
 // Account operations
 export {

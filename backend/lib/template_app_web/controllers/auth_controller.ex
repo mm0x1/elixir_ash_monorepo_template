@@ -210,7 +210,10 @@ defmodule TemplateAppWeb.AuthController do
     RefreshToken
     |> Ash.Changeset.for_create(:create, %{
       user_id: user.id,
-      device_name: device_name
+      device_name: device_name,
+      # version must equal user.token_version so the token is invalidated if
+      # logout_all is called (which increments token_version).
+      version: user.token_version
     })
     |> Ash.create()
   end
@@ -280,11 +283,15 @@ defmodule TemplateAppWeb.AuthController do
   end
 
   defp serialize_user(user) do
+    {:ok, user} = Ash.load(user, [:has_recovery_codes, :recovery_codes_count], authorize?: false)
+
     %{
       id: user.id,
       username: to_string(user.username),
       is_anonymous: user.is_anonymous,
-      role: user.role
+      role: user.role,
+      has_recovery_codes: user.has_recovery_codes,
+      recovery_codes_count: user.recovery_codes_count
     }
   end
 

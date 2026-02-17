@@ -5,6 +5,10 @@ defmodule TemplateApp.Domains.Accounts.Changes.GenerateRecoveryCodes do
 
   @code_length 10
 
+  # Base32 encodes 5 bits per character. 8 random bytes (64 bits) → 13 Base32 characters.
+  # We truncate to @code_length, discarding the last 3, keeping the entropy we need.
+  @random_source_bytes 8
+
   @impl true
   def change(changeset, _opts, _ctx) do
     code_count = TemplateApp.Config.recovery_code_count()
@@ -21,7 +25,7 @@ defmodule TemplateApp.Domains.Accounts.Changes.GenerateRecoveryCodes do
 
   defp generate_codes(count, length) do
     for _ <- 1..count do
-      8
+      @random_source_bytes
       |> :crypto.strong_rand_bytes()
       |> Base.encode32(padding: false)
       |> binary_part(0, length)

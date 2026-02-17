@@ -5,12 +5,17 @@
 
 import { writable, get } from 'svelte/store';
 import type { User, AuthResponse, RefreshResponse } from '$lib/types';
-import { API_URL, resetRefreshAttempts } from '$lib/api/client';
+import { API_URL } from '$lib/api/client';
+import { accessToken } from '$lib/auth/token';
+import { configureAuthFetch } from './refresh';
 
-/**
- * Access token store - kept in memory only (not persisted)
- */
-export const accessToken = writable<string | null>(null);
+// Re-export so the rest of the app can import from '$lib/auth'
+export { accessToken };
+
+// Register this module's refresh/clearAuth with the fetch layer.
+// Function declarations are hoisted so refreshAccessToken and clearAuth
+// are available here even though they appear later in the file.
+configureAuthFetch(refreshAccessToken, clearAuth);
 
 /**
  * Current user store
@@ -27,12 +32,9 @@ export const authLoading = writable<boolean>(true);
  */
 export const authInitialized = writable<boolean>(false);
 
-// Register stores globally for client.ts to access without circular imports
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-(globalThis as any).__AUTH_STORES__ = { accessToken };
-
 /**
- * Transform backend user DTO to UI User type
+ * Transform backend auth response user to UI User type.
+ * The auth endpoints return full user data including recovery code status.
  */
 function toUser(dto: AuthResponse['user']): User {
 	return {
@@ -40,8 +42,8 @@ function toUser(dto: AuthResponse['user']): User {
 		displayName: dto.username,
 		isGuest: dto.is_anonymous,
 		role: dto.role,
-		hasRecoveryCodes: false, // Not included in auth response, load separately if needed
-		recoveryCodesCount: null
+		hasRecoveryCodes: dto.has_recovery_codes,
+		recoveryCodesCount: dto.recovery_codes_count
 	};
 }
 
@@ -65,7 +67,6 @@ export async function login(username: string, password: string): Promise<User> {
 	accessToken.set(data.access_token);
 	const user = toUser(data.user);
 	currentUser.set(user);
-	resetRefreshAttempts();
 
 	return user;
 }
@@ -98,7 +99,6 @@ export async function register(
 	accessToken.set(data.access_token);
 	const user = toUser(data.user);
 	currentUser.set(user);
-	resetRefreshAttempts();
 
 	return user;
 }

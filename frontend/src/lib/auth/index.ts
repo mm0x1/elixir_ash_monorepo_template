@@ -14,3 +14,5 @@ export {
 	isAuthenticated,
 	hasRole
 } from './store';
+
+export { configureAuthFetch, ensureValidToken } from './refresh';

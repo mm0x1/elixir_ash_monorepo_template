@@ -15,6 +15,12 @@ defmodule TemplateApp.Domains.Accounts do
     show? true
   end
 
+  # Internal fields never sent to the frontend.
+  # recovery_codes is also excluded by default, except in generate_recovery_codes
+  # where the plain codes are returned once via __metadata__.
+  @always_denied_fields [:hashed_password, :recovery_codes_generated_at, :username_last_changed]
+  @raw_codes_field [:recovery_codes]
+
   typescript_rpc do
     namespace("accounts")
 
@@ -28,43 +34,23 @@ defmodule TemplateApp.Domains.Accounts do
 
       rpc_action :get_user, :by_id do
         get? true
-
-        denied_loads([
-          :recovery_codes,
-          :hashed_password,
-          :recovery_codes_generated_at,
-          :username_last_changed
-        ])
+        denied_loads(@always_denied_fields ++ @raw_codes_field)
       end
 
       rpc_action :change_username, :change_username do
-        denied_loads([
-          :recovery_codes,
-          :hashed_password,
-          :recovery_codes_generated_at,
-          :username_last_changed
-        ])
+        denied_loads(@always_denied_fields ++ @raw_codes_field)
       end
 
       rpc_action :generate_recovery_codes, :generate_recovery_codes do
         description "Generate new recovery codes for the user. Returns the codes only once."
-
-        denied_loads([
-          :hashed_password,
-          :recovery_codes_generated_at,
-          :username_last_changed
-        ])
+        # recovery_codes is intentionally not denied here: the hashed codes are
+        # accessible, and the plain codes are delivered via __metadata__.plain_recovery_codes.
+        denied_loads(@always_denied_fields)
       end
 
       rpc_action :convert_to_registered, :convert_to_registered do
         description "Convert an anonymous user to a registered user with username and password."
-
-        denied_loads([
-          :recovery_codes,
-          :hashed_password,
-          :recovery_codes_generated_at,
-          :username_last_changed
-        ])
+        denied_loads(@always_denied_fields ++ @raw_codes_field)
       end
     end
   end

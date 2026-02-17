@@ -65,6 +65,8 @@
 		const codesText = recoveryCodes.join('\n');
 		const blob = new Blob([codesText], { type: 'text/plain' });
 		const url = URL.createObjectURL(blob);
+		// Browsers do not expose a direct JS download API; the standard workaround
+		// is to create a temporary anchor with the `download` attribute and click it.
 		const a = document.createElement('a');
 		a.href = url;
 		a.download = 'recovery-codes.txt';

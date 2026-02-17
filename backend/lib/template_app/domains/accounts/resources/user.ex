@@ -11,6 +11,7 @@ defmodule TemplateApp.Domains.Accounts.Resources.User do
     extensions: [AshAuthentication, AshPhoenix, AshTypescript.Resource]
 
   alias TemplateApp.Domains.Accounts.Changes.{
+    ConvertToRegistered,
     GenerateAnonymousUser,
     GenerateRecoveryCodes,
     ConsumeRecoveryCodeAndResetPassword,
@@ -107,6 +108,9 @@ defmodule TemplateApp.Domains.Accounts.Resources.User do
       end
 
       change GenerateRecoveryCodes
+
+      # Plain codes are returned once here; the attribute stores only hashed versions.
+      metadata :plain_recovery_codes, {:array, :string}, allow_nil?: false
     end
 
     update :reset_password_with_recovery_code do
@@ -123,39 +127,19 @@ defmodule TemplateApp.Domains.Accounts.Resources.User do
       require_atomic? false
 
       argument :username, :ci_string, allow_nil?: false
-      argument :password, :string, allow_nil?: false, sensitive?: true
+
+      argument :password, :string,
+        allow_nil?: false,
+        constraints: [min_length: 8],
+        sensitive?: true
+
       argument :password_confirmation, :string, allow_nil?: false, sensitive?: true
 
       validate attribute_equals(:is_anonymous, true) do
         message "only anonymous users can convert to registered"
       end
 
-      validate fn changeset, _ctx ->
-        pw = Ash.Changeset.get_argument(changeset, :password)
-        confirm = Ash.Changeset.get_argument(changeset, :password_confirmation)
-
-        if pw == confirm,
-          do: :ok,
-          else: {:error, field: :password_confirmation, message: "does not match"}
-      end
-
-      validate fn changeset, _ctx ->
-        if String.length(Ash.Changeset.get_argument(changeset, :password) || "") >= 8 do
-          :ok
-        else
-          {:error, field: :password, message: "must be at least 8 characters"}
-        end
-      end
-
-      change fn changeset, _ctx ->
-        password = Ash.Changeset.get_argument(changeset, :password)
-        username = Ash.Changeset.get_argument(changeset, :username)
-
-        changeset
-        |> Ash.Changeset.change_attribute(:username, username)
-        |> Ash.Changeset.change_attribute(:hashed_password, Argon2.hash_pwd_salt(password))
-        |> Ash.Changeset.change_attribute(:is_anonymous, false)
-      end
+      change ConvertToRegistered
     end
 
     update :change_username do
@@ -228,7 +212,7 @@ defmodule TemplateApp.Domains.Accounts.Resources.User do
   calculations do
     calculate :has_recovery_codes,
               :boolean,
-              expr(fragment("array_length(?, 1) > 0", recovery_codes)) do
+              expr(fragment("coalesce(array_length(?, 1) > 0, false)", recovery_codes)) do
       public? true
     end
 

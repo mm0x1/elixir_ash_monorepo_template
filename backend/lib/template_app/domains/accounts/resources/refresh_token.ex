@@ -21,6 +21,8 @@ defmodule TemplateApp.Domains.Accounts.Resources.RefreshToken do
     data_layer: AshPostgres.DataLayer,
     authorizers: [Ash.Policy.Authorizer]
 
+  alias TemplateApp.Domains.Accounts.Changes.SetTokenExpiry
+
   @refresh_token_lifetime_days 7
 
   postgres do
@@ -35,18 +37,13 @@ defmodule TemplateApp.Domains.Accounts.Resources.RefreshToken do
       accept [:device_name]
 
       argument :user_id, :uuid, allow_nil?: false
+      # version must equal the user's current token_version so that logout_all
+      # (which increments token_version) immediately invalidates all existing tokens.
+      argument :version, :integer, allow_nil?: false
 
       change manage_relationship(:user_id, :user, type: :append)
-      change set_attribute(:version, 1)
-
-      change fn changeset, _context ->
-        expires_at =
-          DateTime.utc_now()
-          |> DateTime.add(@refresh_token_lifetime_days, :day)
-          |> DateTime.truncate(:microsecond)
-
-        Ash.Changeset.force_change_attribute(changeset, :expires_at, expires_at)
-      end
+      change set_attribute(:version, arg(:version))
+      change {SetTokenExpiry, lifetime_days: @refresh_token_lifetime_days}
     end
 
     read :by_id do
@@ -73,7 +70,7 @@ defmodule TemplateApp.Domains.Accounts.Resources.RefreshToken do
     end
 
     # Read is internal only (for validation)
-    policy action(:read), authorize_if: always()
+    policy action_type(:read), authorize_if: always()
 
     # Create is internal only (called from AuthController)
     policy action(:create), authorize_if: always()
@@ -92,7 +89,8 @@ defmodule TemplateApp.Domains.Accounts.Resources.RefreshToken do
       allow_nil? false
       default 1
       public? false
-      description "Must match user.token_version for token to be valid"
+
+      description "Set to user.token_version at creation. Must still match user.token_version at refresh time; logout_all breaks this by incrementing token_version."
     end
 
     attribute :expires_at, :utc_datetime_usec do

@@ -23,7 +23,9 @@ defmodule TemplateAppWeb.Plugs.ValidateAccessToken do
     with {:ok, token} <- extract_bearer_token(conn),
          {:ok, claims} <- JWT.verify_access_token(token),
          {:ok, user} <- load_and_validate_user(claims) do
-      assign(conn, :current_user, user)
+      conn
+      |> assign(:current_user, user)
+      |> Ash.PlugHelpers.set_actor(user)
     else
       {:error, :no_token} ->
         unauthorized(conn, "No authorization token provided")

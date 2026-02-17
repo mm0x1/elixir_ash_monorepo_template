@@ -659,7 +659,7 @@ export type GetUserInput = {
   id: UUID;
 };
 
-type GetUserSchema = Omit<UserResourceSchema, 'recovery_codes' | 'hashed_password' | 'recovery_codes_generated_at' | 'username_last_changed'>;
+type GetUserSchema = Omit<UserResourceSchema, 'hashed_password' | 'recovery_codes_generated_at' | 'username_last_changed' | 'recovery_codes'>;
 
 export type GetUserFields = UnifiedFieldSelection<GetUserSchema>[];
 export type InferGetUserResult<
@@ -704,7 +704,7 @@ export type ChangeUsernameInput = {
   username?: string;
 };
 
-type ChangeUsernameSchema = Omit<UserResourceSchema, 'recovery_codes' | 'hashed_password' | 'recovery_codes_generated_at' | 'username_last_changed'>;
+type ChangeUsernameSchema = Omit<UserResourceSchema, 'hashed_password' | 'recovery_codes_generated_at' | 'username_last_changed' | 'recovery_codes'>;
 
 export type ChangeUsernameFields = UnifiedFieldSelection<ChangeUsernameSchema>[];
 
@@ -752,11 +752,16 @@ type GenerateRecoveryCodesSchema = Omit<UserResourceSchema, 'hashed_password' | 
 
 export type GenerateRecoveryCodesFields = UnifiedFieldSelection<GenerateRecoveryCodesSchema>[];
 
+export type GenerateRecoveryCodesMetadata = {
+  plain_recovery_codes: Array<string>;
+};
+
 export type InferGenerateRecoveryCodesResult<
   Fields extends GenerateRecoveryCodesFields | undefined,
+  MetadataFields extends ReadonlyArray<keyof GenerateRecoveryCodesMetadata> = []
 > = InferResult<GenerateRecoveryCodesSchema, Fields>;
 
-export type GenerateRecoveryCodesResult<Fields extends GenerateRecoveryCodesFields | undefined = undefined> = | { success: true; data: InferGenerateRecoveryCodesResult<Fields>; }
+export type GenerateRecoveryCodesResult<Fields extends GenerateRecoveryCodesFields | undefined = undefined, MetadataFields extends ReadonlyArray<keyof GenerateRecoveryCodesMetadata> = []> = | { success: true; data: InferGenerateRecoveryCodesResult<Fields>; metadata: Pick<GenerateRecoveryCodesMetadata, MetadataFields[number]>; }
 | { success: false; errors: AshRpcError[]; }
 
 ;
@@ -766,24 +771,26 @@ export type GenerateRecoveryCodesResult<Fields extends GenerateRecoveryCodesFiel
  *
  * @ashActionType :update
  */
-export async function generate_recovery_codes<Fields extends GenerateRecoveryCodesFields | undefined = undefined>(
+export async function generate_recovery_codes<Fields extends GenerateRecoveryCodesFields | undefined = undefined, MetadataFields extends ReadonlyArray<keyof GenerateRecoveryCodesMetadata> = []>(
   config: {
   tenant?: string;
   identity: UUID;
   fields?: Fields;
+  metadata_fields?: MetadataFields;
   headers?: Record<string, string>;
   fetchOptions?: RequestInit;
   customFetch?: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
 }
-): Promise<GenerateRecoveryCodesResult<Fields extends undefined ? [] : Fields>> {
+): Promise<GenerateRecoveryCodesResult<Fields extends undefined ? [] : Fields, MetadataFields>> {
   const payload = {
     action: "generate_recovery_codes",
     ...(config.tenant !== undefined && { tenant: config.tenant }),
     identity: config.identity,
-    ...(config.fields !== undefined && { fields: config.fields })
+    ...(config.fields !== undefined && { fields: config.fields }),
+    ...(config.metadata_fields && { metadata_fields: config.metadata_fields })
   };
 
-  return executeActionRpcRequest<GenerateRecoveryCodesResult<Fields extends undefined ? [] : Fields>>(
+  return executeActionRpcRequest<GenerateRecoveryCodesResult<Fields extends undefined ? [] : Fields, MetadataFields>>(
     payload,
     config
   );
@@ -796,7 +803,7 @@ export type ConvertToRegisteredInput = {
   password_confirmation: string;
 };
 
-type ConvertToRegisteredSchema = Omit<UserResourceSchema, 'recovery_codes' | 'hashed_password' | 'recovery_codes_generated_at' | 'username_last_changed'>;
+type ConvertToRegisteredSchema = Omit<UserResourceSchema, 'hashed_password' | 'recovery_codes_generated_at' | 'username_last_changed' | 'recovery_codes'>;
 
 export type ConvertToRegisteredFields = UnifiedFieldSelection<ConvertToRegisteredSchema>[];
 

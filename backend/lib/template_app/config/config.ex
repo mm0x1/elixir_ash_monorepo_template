@@ -31,14 +31,6 @@ defmodule TemplateApp.Config do
   end
 
   @doc """
-  Get the support email (if email functionality is added later).
-  Not used in current template but prepared for future use.
-  """
-  def support_email do
-    System.get_env("SUPPORT_EMAIL")
-  end
-
-  @doc """
   Get the application URL for absolute links and redirects.
   """
   def app_url do

@@ -29,6 +29,8 @@ export interface AuthResponse {
 		username: string;
 		is_anonymous: boolean;
 		role: 'user' | 'admin' | 'superadmin';
+		has_recovery_codes: boolean;
+		recovery_codes_count: number;
 	};
 }
 
