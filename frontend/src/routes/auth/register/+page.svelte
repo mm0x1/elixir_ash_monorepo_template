@@ -1,6 +1,6 @@
 <script lang="ts">
-	import { register } from '$lib/auth';
-	import { notifications } from '$lib/stores';
+	import { register } from '$lib/features/accounts';
+	import { notifications } from '$lib/shared/stores';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 

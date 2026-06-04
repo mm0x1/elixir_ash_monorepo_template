@@ -4,7 +4,7 @@ defmodule TemplateAppWeb.Plugs.ValidateAccessTokenTest do
   import TemplateApp.UserFixtures
 
   alias TemplateAppWeb.Plugs.ValidateAccessToken
-  alias TemplateApp.Auth.JWT
+  alias TemplateApp.Accounts.JWT
 
   defp call_plug(conn) do
     ValidateAccessToken.call(conn, ValidateAccessToken.init([]))

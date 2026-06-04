@@ -1,7 +1,7 @@
 <script lang="ts">
-	import { currentUser } from '$lib/auth';
-	import { convertToRegistered, ApiError, mapFieldErrors } from '$lib/api';
-	import { notifications } from '$lib/stores';
+	import { currentUser } from '$lib/features/accounts';
+	import { convertToRegistered, ApiError, mapFieldErrors } from '$lib/features/accounts';
+	import { notifications } from '$lib/shared/stores';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { onMount } from 'svelte';

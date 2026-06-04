@@ -1,6 +1,6 @@
 <script lang="ts">
-	import { login } from '$lib/auth';
-	import { notifications } from '$lib/stores';
+	import { login } from '$lib/features/accounts';
+	import { notifications } from '$lib/shared/stores';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 
@@ -36,6 +36,11 @@
 				Or
 				<a href={resolve('/auth/register')} class="font-medium text-blue-600 hover:text-blue-500">
 					create a new account
+				</a>
+			</p>
+			<p class="mt-2 text-center text-sm text-gray-600">
+				<a href={resolve('/auth/reset')} class="font-medium text-blue-600 hover:text-blue-500">
+					Forgot your password?
 				</a>
 			</p>
 		</div>

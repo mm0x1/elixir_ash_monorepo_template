@@ -58,6 +58,8 @@ defmodule TemplateAppWeb.Router do
     post "/login", AuthController, :login
     post "/register", AuthController, :register
     post "/refresh", AuthController, :refresh
+    post "/request-reset", AuthController, :request_reset
+    post "/reset-password", AuthController, :reset_password
   end
 
   # Authenticated auth endpoints (token required)
@@ -69,12 +71,13 @@ defmodule TemplateAppWeb.Router do
     get "/me", AuthController, :me
   end
 
-  # RPC endpoint for ash_typescript client-side data fetching (token-based auth)
-  scope "/rpc", TemplateAppWeb do
+  # Authenticated account self-service endpoints (former RPC user ops over REST)
+  scope "/account", TemplateAppWeb do
     pipe_through [:api, :authenticated_api]
 
-    post "/run", RpcController, :run
-    post "/validate", RpcController, :validate
+    patch "/username", AccountController, :update_username
+    post "/recovery-codes", AccountController, :generate_recovery_codes
+    post "/convert", AccountController, :convert
   end
 
   # Health check endpoint
@@ -92,7 +95,6 @@ defmodule TemplateAppWeb.Router do
       pipe_through [:browser]
 
       live_dashboard "/dashboard", metrics: TemplateAppWeb.Telemetry
-      forward "/mailbox", Plug.Swoosh.MailboxPreview
     end
 
     scope "/admin" do

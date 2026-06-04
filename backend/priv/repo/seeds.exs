@@ -1,5 +1,5 @@
-alias TemplateApp.Domains.Accounts
-alias TemplateApp.Domains.Accounts.Resources.User
+alias TemplateApp.Accounts
+alias TemplateApp.Accounts.Resources.User
 require Ash.Query
 
 defmodule Seeder do

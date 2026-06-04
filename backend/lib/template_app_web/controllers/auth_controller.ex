@@ -12,9 +12,12 @@ defmodule TemplateAppWeb.AuthController do
 
   use TemplateAppWeb, :controller
 
-  alias TemplateApp.Auth.JWT
-  alias TemplateApp.Domains.Accounts
-  alias TemplateApp.Domains.Accounts.Resources.RefreshToken
+  import TemplateAppWeb.Helpers.UserSerializer, only: [serialize_user: 1, format_ash_errors: 1]
+
+  alias TemplateApp.Accounts
+  alias TemplateApp.Accounts.JWT
+  alias TemplateApp.Accounts.Resources.RefreshToken
+  alias TemplateAppWeb.Helpers.ApiResponse
 
   require Ash.Query
   require Logger
@@ -38,9 +41,7 @@ defmodule TemplateAppWeb.AuthController do
   end
 
   def login(conn, _params) do
-    conn
-    |> put_status(400)
-    |> json(%{error: "bad_request", message: "Username and password are required"})
+    ApiResponse.bad_request(conn, "Username and password are required")
   end
 
   @doc """
@@ -56,23 +57,15 @@ defmodule TemplateAppWeb.AuthController do
         create_tokens_and_respond(conn, user, 201)
 
       {:error, error} ->
-        conn
-        |> put_status(422)
-        |> json(%{
-          error: "validation_error",
-          message: "Registration failed",
-          errors: format_ash_errors(error)
-        })
+        ApiResponse.validation_error(conn, error, "Registration failed")
     end
   end
 
   def register(conn, _params) do
-    conn
-    |> put_status(400)
-    |> json(%{
-      error: "bad_request",
-      message: "Username, password, and password_confirmation are required"
-    })
+    ApiResponse.bad_request(
+      conn,
+      "Username, password, and password_confirmation are required"
+    )
   end
 
   @doc """
@@ -184,7 +177,83 @@ defmodule TemplateAppWeb.AuthController do
     })
   end
 
+  @doc """
+  Request a password reset by username (unauthenticated).
+
+  Generates a fresh batch of single-use recovery codes and returns the plaintext
+  codes in the response body exactly once. Only the Argon2 hashes are persisted.
+  Because the codes are delivered in the response (this template sends no email),
+  account existence is necessarily observable here.
+  """
+  def request_reset(conn, %{"username" => username}) do
+    with {:ok, user} <- fetch_user_by_username(username),
+         {:ok, updated} <- Accounts.request_password_reset(user) do
+      json(conn, %{
+        recovery_codes: updated.__metadata__[:plain_recovery_codes]
+      })
+    else
+      {:error, :not_found} ->
+        conn
+        |> put_status(404)
+        |> json(%{error: "user_not_found", message: "No account found for that username"})
+
+      {:error, error} ->
+        conn
+        |> put_status(422)
+        |> json(%{
+          error: "reset_failed",
+          message: "Could not generate reset codes",
+          errors: format_ash_errors(error)
+        })
+    end
+  end
+
+  def request_reset(conn, _params) do
+    ApiResponse.bad_request(conn, "Username is required")
+  end
+
+  @doc """
+  Reset a password using a recovery code (unauthenticated).
+
+  Looks up the user by username, validates and consumes the single-use code, and
+  sets the new password. Expired or already-used codes are rejected.
+  """
+  def reset_password(conn, %{
+        "username" => username,
+        "recovery_code" => recovery_code,
+        "new_password" => new_password
+      }) do
+    with {:ok, user} <- fetch_user_by_username(username),
+         {:ok, _updated} <-
+           Accounts.reset_password_with_recovery_code(user, recovery_code, new_password) do
+      json(conn, %{message: "Password reset successfully"})
+    else
+      {:error, :not_found} ->
+        conn
+        |> put_status(404)
+        |> json(%{error: "user_not_found", message: "No account found for that username"})
+
+      {:error, error} ->
+        ApiResponse.validation_error(conn, error, "Password reset failed")
+    end
+  end
+
+  def reset_password(conn, _params) do
+    ApiResponse.bad_request(
+      conn,
+      "Username, recovery_code, and new_password are required"
+    )
+  end
+
   # Private helpers
+
+  defp fetch_user_by_username(username) do
+    case Accounts.get_by_username(username) do
+      {:ok, nil} -> {:error, :not_found}
+      {:ok, user} -> {:ok, user}
+      {:error, _} -> {:error, :not_found}
+    end
+  end
 
   defp create_tokens_and_respond(conn, user, status \\ 200) do
     with {:ok, access_token} <- JWT.generate_access_token(user),
@@ -280,32 +349,6 @@ defmodule TemplateAppWeb.AuthController do
 
   defp secure_cookies? do
     Application.get_env(:template_app, :env) == :prod
-  end
-
-  defp serialize_user(user) do
-    {:ok, user} = Ash.load(user, [:has_recovery_codes, :recovery_codes_count], authorize?: false)
-
-    %{
-      id: user.id,
-      username: to_string(user.username),
-      is_anonymous: user.is_anonymous,
-      role: user.role,
-      has_recovery_codes: user.has_recovery_codes,
-      recovery_codes_count: user.recovery_codes_count
-    }
-  end
-
-  defp format_ash_errors(%Ash.Error.Invalid{errors: errors}) do
-    Enum.map(errors, fn error ->
-      %{
-        field: Map.get(error, :field),
-        message: Exception.message(error)
-      }
-    end)
-  end
-
-  defp format_ash_errors(error) do
-    [%{field: nil, message: Exception.message(error)}]
   end
 
   defp internal_error(conn, message) do

@@ -7,7 +7,7 @@ defmodule TemplateAppWeb.AuthControllerTest do
   import Ecto.Query
   import TemplateApp.UserFixtures
 
-  alias TemplateApp.Domains.Accounts.Resources.RefreshToken
+  alias TemplateApp.Accounts.Resources.RefreshToken
 
   @refresh_cookie "_template_app_refresh"
 

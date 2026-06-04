@@ -3,17 +3,16 @@ defmodule TemplateAppWeb.Plugs.ValidateAccessToken do
   Plug that validates JWT access tokens from the Authorization header.
 
   Extracts the Bearer token, verifies the JWT signature, loads the full user,
-  and assigns it to `conn.assigns.current_user`.
-
-  This is critical for ash_typescript's RPC, which reads `conn.assigns.current_user`
-  as the actor for authorization.
+  and assigns it to `conn.assigns.current_user`. It also sets the Ash actor
+  (`Ash.PlugHelpers.set_actor/2`) so authenticated REST endpoints can run
+  policy-protected Ash actions on behalf of the current user.
 
   On failure, returns a 401 JSON response.
   """
 
   import Plug.Conn
-  alias TemplateApp.Auth.JWT
-  alias TemplateApp.Domains.Accounts
+  alias TemplateApp.Accounts.JWT
+  alias TemplateApp.Accounts
 
   require Logger
 

@@ -30,20 +30,30 @@ export default ts.config(
 			}
 		}
 	},
-	// API boundary enforcement: prevent direct imports from $lib/generated/
-	// Only $lib/api/ is allowed to import from generated/
+	// Allow intentionally-unused identifiers when prefixed with an underscore
+	// (e.g. placeholder parameters on stubbed API functions).
 	{
-		files: ['src/**/*.ts', 'src/**/*.svelte'],
-		ignores: ['src/lib/api/**/*', 'src/lib/generated/**/*'],
+		files: ['**/*.ts', '**/*.svelte'],
+		rules: {
+			'@typescript-eslint/no-unused-vars': [
+				'error',
+				{ argsIgnorePattern: '^_', varsIgnorePattern: '^_' }
+			]
+		}
+	},
+	// Layering boundary: shared/ is cross-cutting infrastructure and must never
+	// depend on a feature. The dependency direction is features → shared, one way.
+	{
+		files: ['src/lib/shared/**/*.ts', 'src/lib/shared/**/*.svelte'],
 		rules: {
 			'no-restricted-imports': [
 				'error',
 				{
 					patterns: [
 						{
-							group: ['$lib/generated/*', '**/generated/*'],
+							group: ['$lib/features/*', '$lib/features/**'],
 							message:
-								'Import from $lib/api/ instead. Generated types must not leak outside the API boundary.'
+								'Shared code must not import from features/ — keep the dependency direction features → shared.'
 						}
 					]
 				}
@@ -51,6 +61,6 @@ export default ts.config(
 		}
 	},
 	{
-		ignores: ['build/', '.svelte-kit/', 'dist/', 'node_modules/', 'src/lib/generated/']
+		ignores: ['build/', '.svelte-kit/', 'dist/', 'node_modules/']
 	}
 );

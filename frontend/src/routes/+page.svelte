@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { currentUser } from '$lib/auth';
+	import { currentUser } from '$lib/features/accounts';
 	import { resolve } from '$app/paths';
 </script>
 

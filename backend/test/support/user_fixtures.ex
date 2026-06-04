@@ -5,7 +5,10 @@ defmodule TemplateApp.UserFixtures do
   Uses the domain's own functions as factories — no separate factory library needed.
   """
 
-  alias TemplateApp.Domains.Accounts
+  import Ecto.Query
+
+  alias TemplateApp.Accounts
+  alias TemplateApp.Accounts.Resources.User
 
   @doc """
   Creates a registered user. Accepts optional attrs to override defaults.
@@ -34,7 +37,40 @@ defmodule TemplateApp.UserFixtures do
   Generates a valid JWT access token for the given user.
   """
   def access_token_for(user) do
-    {:ok, token} = TemplateApp.Auth.JWT.generate_access_token(user)
+    {:ok, token} = TemplateApp.Accounts.JWT.generate_access_token(user)
     token
+  end
+
+  @doc """
+  Creates a registered user with a fresh batch of recovery codes.
+
+  Returns `{user, plain_codes}` — the reloaded user plus the one-time plaintext
+  codes (only their Argon2 hashes are persisted).
+  """
+  def create_user_with_recovery_codes(attrs \\ %{}) do
+    user = create_user(attrs)
+    {:ok, updated} = Accounts.generate_recovery_codes(user, actor: user)
+    {updated, updated.__metadata__.plain_recovery_codes}
+  end
+
+  @doc """
+  Ages a user's recovery-code batch past its TTL so the codes count as expired.
+
+  Drives expiry by backdating `recovery_codes_generated_at` directly via Ecto —
+  the same pattern the refresh-token-expiry test uses — relative to
+  `TemplateApp.Config.recovery_code_ttl_seconds/0`. Returns the reloaded user so
+  callers passing it straight to an Ash action see the aged timestamp.
+  """
+  def expire_recovery_codes(user) do
+    ttl = TemplateApp.Config.recovery_code_ttl_seconds()
+    past = DateTime.add(DateTime.utc_now(), -(ttl + 60), :second)
+
+    TemplateApp.Repo.update_all(
+      from(u in User, where: u.id == ^user.id),
+      set: [recovery_codes_generated_at: past]
+    )
+
+    {:ok, reloaded} = Accounts.get_user_by_id(user.id)
+    reloaded
   end
 end

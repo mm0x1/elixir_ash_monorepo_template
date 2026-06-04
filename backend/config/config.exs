@@ -61,7 +61,7 @@ config :template_app,
   ecto_repos: [TemplateApp.Repo],
   generators: [timestamp_type: :utc_datetime],
   ash_domains: [
-    TemplateApp.Domains.Accounts
+    TemplateApp.Accounts
   ]
 
 # Configures the endpoint
@@ -77,15 +77,6 @@ config :template_app, TemplateAppWeb.Endpoint,
 
 # Note: Response compression should be handled at the infrastructure level
 # (nginx, load balancer, CDN) for optimal performance
-
-# Configures the mailer
-#
-# By default it uses the "Local" adapter which stores the emails
-# locally. You can see the emails in your browser, at "/dev/mailbox".
-#
-# For production it's recommended to configure a different adapter
-# at the `config/runtime.exs`.
-config :template_app, TemplateApp.Mailer, adapter: Swoosh.Adapters.Local
 
 # Tailwind disabled - Svelte uses its own Tailwind build
 # config :tailwind,
@@ -153,15 +144,6 @@ config :logger,
 
 # Use Jason for JSON parsing in Phoenix
 config :phoenix, :json_library, Jason
-
-config :ash_typescript,
-  otp_app: :template_app,
-  output_file: "../frontend/src/lib/generated/ash_rpc.ts",
-  run_endpoint: "/rpc/run",
-  validate_endpoint: "/rpc/validate",
-  input_field_formatter: :snake_case,
-  output_field_formatter: :snake_case,
-  source_path_prefix: "backend"
 
 # Import environment specific config. This must remain at the bottom
 # of this file so it overrides the configuration defined above.

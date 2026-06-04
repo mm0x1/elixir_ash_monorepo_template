@@ -1,10 +1,10 @@
 <script lang="ts">
 	import '../app.css';
-	import favicon from '$lib/assets/favicon.svg';
-	import { initAuth, authLoading, currentUser, logout } from '$lib/auth';
+	import favicon from '$lib/shared/assets/favicon.svg';
+	import { initAuth, authLoading, currentUser, logout } from '$lib/features/accounts';
 	import { onMount } from 'svelte';
-	import Notifications from '$lib/components/Notifications.svelte';
-	import { notifications } from '$lib/stores';
+	import Notifications from '$lib/shared/components/Notifications.svelte';
+	import { notifications } from '$lib/shared/stores';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 

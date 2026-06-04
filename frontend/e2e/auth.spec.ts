@@ -1,0 +1,45 @@
+import { expect, test } from '@playwright/test';
+
+// The single critical journey: a user signs in and lands on the authenticated
+// home page. The backend is mocked via page.route — no live backend.
+const userDto = {
+	id: '11111111-1111-1111-1111-111111111111',
+	username: 'alice',
+	is_anonymous: false,
+	role: 'user',
+	has_recovery_codes: false,
+	recovery_codes_count: 0
+};
+
+test('signing in lands on the authenticated home page', async ({ page }) => {
+	// No existing session on load.
+	await page.route('**/auth/refresh', (route) =>
+		route.fulfill({
+			status: 401,
+			contentType: 'application/json',
+			body: JSON.stringify({ error: 'no_refresh_token', message: 'No refresh token found' })
+		})
+	);
+
+	// Valid login.
+	await page.route('**/auth/login', (route) =>
+		route.fulfill({
+			status: 200,
+			contentType: 'application/json',
+			body: JSON.stringify({ access_token: 'e2e-access-token', expires_in: 900, user: userDto })
+		})
+	);
+
+	// Start at home and client-route to login through the UI. (Navigating
+	// directly to /auth/login would collide with the mocked POST /auth/login.)
+	await page.goto('/');
+	await page.getByRole('link', { name: 'Sign In' }).click();
+
+	await page.getByLabel('Username').fill('alice');
+	await page.getByLabel('Password').fill('password123');
+	await page.getByRole('button', { name: 'Sign in' }).click();
+
+	// Landed on the home page, signed in as alice.
+	await expect(page.getByRole('heading', { name: 'Welcome to the App' })).toBeVisible();
+	await expect(page.getByText('Hello,')).toContainText('alice');
+});
