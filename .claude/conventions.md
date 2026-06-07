@@ -10,7 +10,7 @@
 |------|--------------|
 | `conventions/index.md` | **Always first** — routes you to relevant files |
 | `conventions/elixir.md` | Elixir, Phoenix, Ash work |
-| `conventions/typescript.md` | TypeScript, React work |
+| `conventions/typescript.md` | TypeScript, Svelte work |
 | `conventions/functional.md` | Understanding paradigm patterns |
 | `conventions/pragmatic.md` | Design decisions, refactoring |
 
@@ -20,11 +20,11 @@
 
 | Rule | Details |
 |------|---------|
-| 🔴 **Serialize Ash structs** | Never pass raw Ash structs to Inertia. Use serializers. |
-| 🔴 **Pass actor to Ash calls** | All Ash operations need `actor: current_user` |
+| 🔴 **Serialize Ash structs** | Never put raw Ash structs in a JSON response. Use a serializer. |
+| 🔴 **Pass actor to Ash calls** | All Ash operations need `actor: current_user`; the plug must `set_actor/2` |
 | 🔴 **No `any` in TypeScript** | Use proper types or `unknown` with type guards |
-| 🔴 **BasePageProps index signature** | Must include `[key: string]: unknown` |
-| 🔴 **router.visit(), not router.replace()** | Use `router.visit(url, { replace: true })` |
+| 🔴 **`features → shared` is one-way** | Shared code must never import from `features/` |
+| 🔴 **Svelte 5 runes in components** | `$state`, `$derived`, `$effect`, `$props` |
 
 ---
 
@@ -43,7 +43,7 @@
 | Situation | Read |
 |-----------|------|
 | Creating Ash resource | `elixir.md` → Ash Framework Rules |
-| Writing React component | `typescript.md` → React Patterns |
+| Writing Svelte component | `typescript.md` → Svelte Patterns |
 | Deciding when to extract | `pragmatic.md` → Topic 9: DRY |
 | Handling errors | `elixir.md` → Error Tuples; `pragmatic.md` → Topic 24 |
 | Structuring data flow | `functional.md` → Data Transformation |

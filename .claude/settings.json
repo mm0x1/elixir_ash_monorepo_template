@@ -4,8 +4,6 @@
       "git status",
       "git diff",
       "git add",
-      "git commit",
-      "git push",
       "git branch",
       "git log",
       "git checkout",
@@ -23,12 +21,12 @@
       "npm run format",
       "npm run lint",
       "npm run lint:fix",
-      "npm run typecheck",
+      "npm run check",
       "npm run build",
       "npm run dev",
-      "npm test",
+      "npm run test:unit",
+      "npm run test:e2e",
       "npm install",
-      "gh pr create",
       "gh pr list",
       "gh pr view"
     ]
@@ -42,15 +40,17 @@
   },
   "testing": {
     "elixir": "MIX_ENV=test mix test",
-    "frontend": "cd frontend && npm test"
+    "frontend": "cd frontend && npm run test:unit",
+    "frontend_e2e": "cd frontend && npm run test:e2e"
   },
   "project": {
     "name": "TemplateApp",
-    "type": "phoenix-ash-inertia",
+    "type": "phoenix-ash-sveltekit",
     "elixir_version": "1.15+",
     "phoenix_version": "1.8",
-    "ash_version": "3.0",
-    "frontend_framework": "react",
-    "styling": "tailwindcss-daisyui"
+    "ash_version": "3.x",
+    "api_style": "rest-json",
+    "frontend_framework": "sveltekit",
+    "styling": "tailwindcss"
   }
 }

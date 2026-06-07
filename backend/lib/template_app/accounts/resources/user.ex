@@ -23,8 +23,6 @@ defmodule TemplateApp.Accounts.Resources.User do
     ValidateRecoveryCode
   }
 
-  require Ash.Query
-
   authentication do
     session_identifier :jti
 

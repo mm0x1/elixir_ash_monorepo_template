@@ -115,9 +115,6 @@ defmodule TemplateAppWeb.AuthController do
         |> delete_refresh_cookie()
         |> put_status(401)
         |> json(%{error: "user_not_found", message: "User not found"})
-
-      {:error, _reason} ->
-        internal_error(conn, "Refresh failed")
     end
   end
 

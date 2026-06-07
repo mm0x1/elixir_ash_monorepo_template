@@ -16,8 +16,6 @@ defmodule TemplateAppWeb.ConnCase do
   """
   use ExUnit.CaseTemplate
 
-  require Phoenix.ConnTest
-
   using do
     quote do
       # The default endpoint for testing
