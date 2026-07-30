@@ -58,3 +58,20 @@ See [AGENTS.md](./AGENTS.md) (agent guide; `CLAUDE.md` is a symlink to it) for p
 and detailed conventions. Backend package usage rules live in
 [backend/AGENTS.md](./backend/AGENTS.md). Agent tooling: Tidewave + HexDocs MCP servers (`.mcp.json`)
 and `usage_rules` (`backend/mix.exs`).
+
+## Security notes
+
+This template is designed for side projects and prototyping. Be aware of these trade-offs:
+
+- **Account enumeration** — the password reset flow uses recovery codes (no email), so the
+  `/auth/request-reset` endpoint reveals whether a username exists. This is inherent to the
+  no-email design; rate limiting mitigates abuse.
+- **Refresh tokens are not rotated** — a stolen refresh token is valid until it expires (7 days).
+  This is simpler than rotation and acceptable for low-stakes apps; for higher security, add
+  rotation in `AuthController.refresh/2`.
+- **Rate limiting** — auth endpoints are rate-limited per IP via Hammer (login: 5/min, register:
+  3/min, reset: 3/hr). Adjust limits in `TemplateAppWeb.Plugs.RateLimitPlug`.
+- **HTTPS** — set `FORCE_SSL=true` in production to enable redirect-to-HTTPS and HSTS. The
+  endpoint's CSP and HSTS headers activate automatically when this is set.
+- **Signing secrets** — the app uses two separate secrets: `TOKEN_SIGNING_SECRET` (Joken JWTs) and
+  `ASH_AUTH_SIGNING_SECRET` (AshAuthentication). Generate unique values with `mix phx.gen.secret 32`.

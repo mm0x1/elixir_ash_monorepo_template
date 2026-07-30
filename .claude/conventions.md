@@ -26,7 +26,7 @@
 - Use `??` instead of `||` for null/undefined defaults
 - Prefer named exports over default exports
 - Derive values during render instead of syncing with `useState`/`useEffect`/`$effect`
-- API wrappers transform DTOs — components consume UI types, never raw backend shapes
+- API wrappers use `authenticatedFetch` — components consume UI types, never raw backend shapes
 
 ## Quick Decision Guide
 

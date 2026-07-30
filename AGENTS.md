@@ -1,178 +1,137 @@
-<!-- usage-rules-start -->
-<!-- usage-rules-header -->
-# Usage Rules
+# Agent Guide
 
-**IMPORTANT**: Consult these usage rules early and often when working with the packages listed below. 
-Before attempting to use any of these packages or to discover if you should use them, review their 
-usage rules to understand the correct patterns, conventions, and best practices.
-<!-- usage-rules-header-end -->
+Guidance for Claude Code and other coding agents working in this repository.
+`CLAUDE.md` is a symlink to this file — edit `AGENTS.md`, not the symlink.
 
-<!-- usage_rules-start -->
-## usage_rules usage
-_A dev tool for Elixir projects to gather LLM usage rules from dependencies_
+**Read `.claude/conventions.md` before writing code.**
 
-## Using Usage Rules
+## Agent tooling
 
-Many packages have usage rules, which you should *thoroughly* consult before taking any
-action. These usage rules contain guidelines and rules *directly from the package authors*.
-They are your best source of knowledge for making decisions.
+This template is set up for AI-assisted development:
 
-## Modules & functions in the current app and dependencies
+- **Backend usage rules** — `backend/AGENTS.md` (symlinked as `backend/CLAUDE.md`) holds
+  package rules synced from deps via `mix usage_rules.sync` (config in `backend/mix.exs`). Consult it
+  before Ash/Phoenix/Elixir work. Re-sync after changing deps.
+- **Tidewave MCP** (dev) — runtime tools against the running app (IEx eval, SQL, Ecto schema
+  introspection, version-accurate docs). Mounted in `endpoint.ex` at `/tidewave/mcp`; configured in
+  `.mcp.json`. Start `mix phx.server` first.
+- **HexDocs MCP** — semantic search over versioned HexDocs for deps in `mix.lock` (`.mcp.json`).
 
-When looking for docs for modules & functions that are dependencies of the current project,
-or for Elixir itself, use `mix usage_rules.docs`
+## Stack
 
-```
-# Search a whole module
-mix usage_rules.docs Enum
+- **Backend** (`backend/`): Phoenix 1.8, Ash 3.x, PostgreSQL — plain REST/JSON, no RPC layer
+- **Frontend** (`frontend/`): SvelteKit 2, Svelte 5, TypeScript, Vite, Tailwind CSS 4 — SPA.
+  Type-checking uses TypeScript 7 (`tsgo`) via svelte-check `--tsgo`; `typescript` (6.x) stays the
+  primary compiler and `@typescript/native` provides TS7 (see `frontend/package.json`).
+- **Auth**: username/password (Argon2) with hybrid tokens; single-use, expiring recovery codes for
+  password reset (no email)
 
-# Search a specific function
-mix usage_rules.docs Enum.zip
+## Commands
 
-# Search a specific function & arity
-mix usage_rules.docs Enum.zip/1
-```
+```bash
+docker compose -f docker-compose.db.yml up -d   # Start DB (required for backend)
 
+# Backend (in backend/)
+mix setup            # Install deps, create + migrate + seed DB
+mix phx.server       # Run API on localhost:4000  (iex -S mix phx.server for a shell)
+mix ash.codegen      # Generate migrations after changing Ash resources
+mix test             # Tests (DB must be up)
+mix quality          # Format + Credo --strict + compile check (quality.fix to auto-fix)
 
-## Searching Documentation
-
-You should also consult the documentation of any tools you are using, early and often. The best 
-way to accomplish this is to use the `usage_rules.search_docs` mix task. Once you have
-found what you are looking for, use the links in the search results to get more detail. For example:
-
-```
-# Search docs for all packages in the current application, including Elixir
-mix usage_rules.search_docs Enum.zip
-
-# Search docs for specific packages
-mix usage_rules.search_docs Req.get -p req
-
-# Search docs for multi-word queries
-mix usage_rules.search_docs "making requests" -p req
-
-# Search only in titles (useful for finding specific functions/modules)
-mix usage_rules.search_docs "Enum.zip" --query-by title
+# Frontend (in frontend/)
+npm install
+npm run dev          # Vite dev server on localhost:5173
+npm run check        # svelte-check (types, via tsgo/TS7)
+npm run lint         # ESLint
+npm run test:unit    # Vitest unit + integration (jsdom, MSW)
+npm run test:e2e     # Playwright E2E (network mocked, never a live backend)
 ```
 
+Tool versions are pinned in `mise.toml` (`mise install` to provision).
 
-<!-- usage_rules-end -->
-<!-- usage_rules:elixir-start -->
-## usage_rules:elixir usage
-# Elixir Core Usage Rules
+## Structure
 
-## Pattern Matching
-- Use pattern matching over conditional logic when possible
-- Prefer to match on function heads instead of using `if`/`else` or `case` in function bodies
+```
+backend/lib/template_app/
+  accounts/                    # Accounts domain
+    resources/                 #   user.ex, token.ex, refresh_token.ex
+    changes/ validations/      #   custom Ash changes + validations
+    accounts.ex               #   domain module + code interfaces
+  application.ex config.ex repo.ex secrets.ex
+backend/lib/template_app_web/
+  controllers/                 # auth_controller, account_controller, health_controller
+  plugs/                       # validate_access_token, ensure_authenticated, ensure_admin
+  helpers/                     # user_serializer, api_response (shared JSON shaping)
+  router/router.ex             # API routes (+ /admin, /dev in dev only)
 
-## Error Handling
-- Use `{:ok, result}` and `{:error, reason}` tuples for operations that can fail
-- Avoid raising exceptions for control flow
-- Use `with` for chaining operations that return `{:ok, _}` or `{:error, _}`
+frontend/src/lib/
+  features/accounts/           # api/ (REST wrappers), auth/ (store + refresh), types/
+  shared/                      # api/ (HTTP client), auth/ (token store), components/, stores/
+frontend/src/routes/           # SvelteKit pages (auth/, profile/, dev/)
+frontend/tests/  frontend/e2e/ # Vitest unit/integration  ·  Playwright specs
+```
 
-## Common Mistakes to Avoid
-- Elixir has no `return` statement, nor early returns. The last expression in a block is always returned.
-- Don't use `Enum` functions on large collections when `Stream` is more appropriate
-- Avoid nested `case` statements - refactor to a single `case`, `with` or separate functions
-- Don't use `String.to_atom/1` on user input (memory leak risk)
-- Lists and enumerables cannot be indexed with brackets. Use pattern matching or `Enum` functions
-- Prefer `Enum` functions like `Enum.reduce` over recursion
-- When recursion is necessary, prefer to use pattern matching in function heads for base case detection
-- Using the process dictionary is typically a sign of unidiomatic code
-- Only use macros if explicitly requested
-- There are many useful standard library functions, prefer to use them where possible
+## Auth & API
 
-## Function Design
-- Use guard clauses: `when is_binary(name) and byte_size(name) > 0`
-- Prefer multiple function clauses over complex conditional logic
-- Name functions descriptively: `calculate_total_price/2` not `calc/2`
-- Predicate function names should not start with `is` and should end in a question mark. 
-- Names like `is_thing` should be reserved for guards
+REST endpoints (see `router.ex`): public `POST /auth/{login,register,refresh,request-reset,reset-password}`; token-gated `POST /auth/{logout,logout_all}`, `GET /auth/me`, and `/account/{username,recovery-codes,convert}`.
 
-## Data Structures
-- Use structs over maps when the shape is known: `defstruct [:name, :age]`
-- Prefer keyword lists for options: `[timeout: 5000, retries: 3]`
-- Use maps for dynamic key-value data
-- Prefer to prepend to lists `[new | list]` not `list ++ [new]`
+| Token | Lifetime | Storage | Validation |
+|-------|----------|---------|------------|
+| Access | 15 min | Svelte store (memory) | stateless JWT, every request |
+| Refresh | 7 days | HttpOnly cookie | DB-backed, only `/auth/refresh` |
 
-## Mix Tasks
+The frontend's `features/accounts/api/*` wrappers use `authenticatedFetch` (from `auth/refresh.ts`) which injects auth headers and retries once on 401 after refreshing the access token. Backend DTOs (snake_case) are transformed into UI types via a shared `toUser()` in `types/transforms.ts`.
 
-- Use `mix help` to list available mix tasks
-- Use `mix help task_name` to get docs for an individual task
-- Read the docs and options fully before using tasks
+## Critical rules
+
+1. **Resolve the actor for Ash** — `ValidateAccessToken` must call `Ash.PlugHelpers.set_actor(conn, user)` (not just `assign`). Without it, update/create/destroy actions return Forbidden (reads pass via `authorize_if always()`).
+2. **Policies are deny-by-default** — explicitly allow each action. `action(:read)` matches only the default `:read`; use `action_type(:read)` to cover named read actions.
+3. **`features → shared` is one-way** — shared code never imports from `features/` (ESLint enforced).
+4. **API wrappers use `authenticatedFetch`** — components consume UI types, never raw backend shapes. Authenticated requests go through `authenticatedFetch` (auto-injects auth headers, retries on 401). Public endpoints (login, register, refresh) use raw `fetch`.
+5. **Svelte 5 runes in components** — `$state`, `$derived`, `$effect`, `$props` (not legacy stores).
+
+## Patterns
+
+```elixir
+# Ash resource (backend/lib/template_app/<domain>/resources/thing.ex)
+defmodule TemplateApp.Accounts.Resources.Thing do
+  use Ash.Resource, domain: TemplateApp.Accounts, data_layer: AshPostgres.DataLayer,
+    authorizers: [Ash.Policy.Authorizer]
+
+  postgres do; table "things"; repo TemplateApp.Repo; end
+  attributes do; uuid_primary_key :id; attribute :name, :string, allow_nil?: false; timestamps(); end
+  actions do; defaults [:read, :destroy]; create :create do; accept [:name]; end; end
+  policies do; policy action_type(:read), authorize_if: always(); end
+end
+```
+
+```typescript
+// REST API wrapper (frontend/src/lib/features/accounts/api/accounts.ts)
+import { API_URL, ApiError } from '$lib/shared/api/client';
+import { authenticatedFetch } from '$lib/features/accounts/auth/refresh';
+import { toUser } from '$lib/features/accounts/types';
+
+export async function updateUsername(_userId: string, username: string): Promise<User> {
+  const res = await authenticatedFetch(`${API_URL}/account/username`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username })
+  });
+  if (!res.ok) throw new ApiError(/* mapped errors */, res.status);
+  return toUser((await res.json()).user);
+}
+```
 
 ## Testing
-- Run tests in a specific file with `mix test test/my_test.exs` and a specific test with the line number `mix test path/to/test.exs:123`
-- Limit the number of failed tests with `mix test --max-failures n`
-- Use `@tag` to tag specific tests, and `mix test --only tag` to run only those tests
-- Use `assert_raise` for testing expected exceptions: `assert_raise ArgumentError, fn -> invalid_function() end`
-- Use `mix help test` to for full documentation on running tests
 
-## Debugging
+- **Backend**: real Ash actions / real controllers against the Ecto sandbox — never mock the code under test. Controller tests that drive update/destroy actions (`Ash.bulk_update`) or `manage_relationship` must be `async: false` (shared sandbox). Reuse `test/support/user_fixtures.ex`.
+- **Frontend**: assert on user-visible output, never internals. Network is the only thing mocked — MSW (`tests/support/`) for integration, `page.route` for Playwright. Shared fixtures in `tests/support/fixtures.ts`.
 
-- Use `dbg/1` to print values while debugging. This will display the formatted value and other relevant information in the console.
+## Docs
 
-<!-- usage_rules:elixir-end -->
-<!-- usage_rules:otp-start -->
-## usage_rules:otp usage
-# OTP Usage Rules
-
-## GenServer Best Practices
-- Keep state simple and serializable
-- Handle all expected messages explicitly
-- Use `handle_continue/2` for post-init work
-- Implement proper cleanup in `terminate/2` when necessary
-
-## Process Communication
-- Use `GenServer.call/3` for synchronous requests expecting replies
-- Use `GenServer.cast/2` for fire-and-forget messages.
-- When in doubt, us `call` over `cast`, to ensure back-pressure
-- Set appropriate timeouts for `call/3` operations
-
-## Fault Tolerance
-- Set up processes such that they can handle crashing and being restarted by supervisors
-- Use `:max_restarts` and `:max_seconds` to prevent restart loops
-
-## Task and Async
-- Use `Task.Supervisor` for better fault tolerance
-- Handle task failures with `Task.yield/2` or `Task.shutdown/2`
-- Set appropriate task timeouts
-- Use `Task.async_stream/3` for concurrent enumeration with back-pressure
-
-<!-- usage_rules:otp-end -->
-<!-- ash_authentication-start -->
-## ash_authentication usage
-_Authentication extension for the Ash Framework._
-
-[ash_authentication usage rules](deps/ash_authentication/usage-rules.md)
-<!-- ash_authentication-end -->
-<!-- ash_postgres-start -->
-## ash_postgres usage
-_The PostgreSQL data layer for Ash Framework_
-
-[ash_postgres usage rules](deps/ash_postgres/usage-rules.md)
-<!-- ash_postgres-end -->
-<!-- igniter-start -->
-## igniter usage
-_A code generation and project patching framework_
-
-[igniter usage rules](deps/igniter/usage-rules.md)
-<!-- igniter-end -->
-<!-- ash_json_api-start -->
-## ash_json_api usage
-_The JSON:API extension for the Ash Framework._
-
-[ash_json_api usage rules](deps/ash_json_api/usage-rules.md)
-<!-- ash_json_api-end -->
-<!-- ash_phoenix-start -->
-## ash_phoenix usage
-_Utilities for integrating Ash and Phoenix_
-
-[ash_phoenix usage rules](deps/ash_phoenix/usage-rules.md)
-<!-- ash_phoenix-end -->
-<!-- ash-start -->
-## ash usage
-_A declarative, extensible framework for building Elixir applications._
-
-[ash usage rules](deps/ash/usage-rules.md)
-<!-- ash-end -->
-<!-- usage-rules-end -->
+| File | Purpose |
+|------|---------|
+| `AGENTS.md` (this file, `CLAUDE.md` → symlink) | Monorepo overview for agents |
+| `backend/AGENTS.md` (`backend/CLAUDE.md` → symlink) | Backend guide + synced package usage rules |
+| `.claude/conventions.md` | Coding style rules (read before writing) |
+| `README.md` | Human-facing quick start |
