@@ -5,9 +5,10 @@
 
 import { writable, get } from 'svelte/store';
 import type { User, AuthResponse, RefreshResponse } from '$lib/features/accounts/types';
+import { toUser } from '$lib/features/accounts/types';
 import { API_URL } from '$lib/shared/api/client';
 import { accessToken } from '$lib/shared/auth/token';
-import { configureAuthFetch } from './refresh';
+import { configureAuthFetch, authenticatedFetch } from './refresh';
 
 // Re-export so the rest of the app can import from '$lib/auth'
 export { accessToken };
@@ -31,21 +32,6 @@ export const authLoading = writable<boolean>(true);
  * Whether auth has been initialized
  */
 export const authInitialized = writable<boolean>(false);
-
-/**
- * Transform backend auth response user to UI User type.
- * The auth endpoints return full user data including recovery code status.
- */
-function toUser(dto: AuthResponse['user']): User {
-	return {
-		id: dto.id,
-		displayName: dto.username,
-		isGuest: dto.is_anonymous,
-		role: dto.role,
-		hasRecoveryCodes: dto.has_recovery_codes,
-		recoveryCodesCount: dto.recovery_codes_count
-	};
-}
 
 /**
  * Login with username and password
@@ -212,27 +198,19 @@ export async function logoutAll(): Promise<void> {
 }
 
 /**
- * Get current user info from server
+ * Get current user info from server.
+ * Uses authenticatedFetch so a 401 triggers a token refresh automatically.
  */
 export async function fetchCurrentUser(): Promise<User | null> {
 	const token = get(accessToken);
-
-	if (!token) {
-		return null;
-	}
+	if (!token) return null;
 
 	try {
-		const response = await fetch(`${API_URL}/auth/me`, {
-			headers: { Authorization: `Bearer ${token}` },
-			credentials: 'include'
-		});
+		const response = await authenticatedFetch(`${API_URL}/auth/me`, {});
 
 		if (!response.ok) {
-			if (response.status === 401) {
-				// Try to refresh
-				await refreshAccessToken();
-				return fetchCurrentUser();
-			}
+			if (response.status === 401) return null;
+			console.error(`fetchCurrentUser: unexpected ${response.status}`);
 			return null;
 		}
 
@@ -240,7 +218,9 @@ export async function fetchCurrentUser(): Promise<User | null> {
 		const user = toUser(data.user);
 		currentUser.set(user);
 		return user;
-	} catch {
+	} catch (error) {
+		if (error instanceof Error && error.message === 'Session expired') return null;
+		console.error('fetchCurrentUser:', error);
 		return null;
 	}
 }
@@ -272,21 +252,3 @@ export function clearAuth(): void {
 	currentUser.set(null);
 }
 
-/**
- * Check if user is authenticated
- */
-export function isAuthenticated(): boolean {
-	return get(accessToken) !== null;
-}
-
-/**
- * Check if user has a specific role
- */
-export function hasRole(role: User['role']): boolean {
-	const user = get(currentUser);
-	if (!user) return false;
-
-	// Role hierarchy: superadmin > admin > user
-	const roleHierarchy = { user: 1, admin: 2, superadmin: 3 };
-	return roleHierarchy[user.role] >= roleHierarchy[role];
-}

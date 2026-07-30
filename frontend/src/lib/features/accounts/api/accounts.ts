@@ -11,37 +11,18 @@
  * `credentials: 'include'`.
  */
 
-import { API_URL, getAuthHeaders, ApiError, mapFieldErrors } from '$lib/shared/api/client';
+import { API_URL, ApiError, mapFieldErrors } from '$lib/shared/api/client';
 import type { ApiFieldError } from '$lib/shared/api/client';
 import type { User, UserWithRecoveryCodes } from '$lib/features/accounts/types';
+import { toUser } from '$lib/features/accounts/types';
+import { authenticatedFetch } from '$lib/features/accounts/auth/refresh';
 
 export { ApiError, mapFieldErrors };
-
-/** Shape of the `user` object returned by the auth/account endpoints. */
-interface UserDto {
-	id: string;
-	username: string;
-	is_anonymous: boolean;
-	role: User['role'];
-	has_recovery_codes: boolean;
-	recovery_codes_count: number | null;
-}
 
 /** Backend validation-error item: `{ field, message }` (field may be null). */
 interface BackendError {
 	field: string | null;
 	message: string;
-}
-
-function toUser(dto: UserDto): User {
-	return {
-		id: dto.id,
-		displayName: dto.username,
-		isGuest: dto.is_anonymous,
-		role: dto.role,
-		hasRecoveryCodes: dto.has_recovery_codes,
-		recoveryCodesCount: dto.recovery_codes_count
-	};
 }
 
 /** Map the backend `[{ field, message }]` error list to `ApiFieldError[]`. */
@@ -72,18 +53,17 @@ async function throwApiError(response: Response, fallback: string): Promise<neve
  * from the access token.
  */
 export async function updateUsername(_userId: string, username: string): Promise<User> {
-	const response = await fetch(`${API_URL}/account/username`, {
+	const response = await authenticatedFetch(`${API_URL}/account/username`, {
 		method: 'PATCH',
-		headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
-		body: JSON.stringify({ username }),
-		credentials: 'include'
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify({ username })
 	});
 
 	if (!response.ok) {
 		await throwApiError(response, 'Failed to update username');
 	}
 
-	const data: { user: UserDto } = await response.json();
+	const data = await response.json();
 	return toUser(data.user);
 }
 
@@ -92,17 +72,16 @@ export async function updateUsername(_userId: string, username: string): Promise
  * The plaintext codes are returned exactly once.
  */
 export async function generateRecoveryCodes(_userId: string): Promise<UserWithRecoveryCodes> {
-	const response = await fetch(`${API_URL}/account/recovery-codes`, {
+	const response = await authenticatedFetch(`${API_URL}/account/recovery-codes`, {
 		method: 'POST',
-		headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
-		credentials: 'include'
+		headers: { 'Content-Type': 'application/json' }
 	});
 
 	if (!response.ok) {
 		await throwApiError(response, 'Failed to generate recovery codes');
 	}
 
-	const data: { user: UserDto; recovery_codes: string[] } = await response.json();
+	const data = await response.json();
 	return { ...toUser(data.user), recoveryCodes: data.recovery_codes };
 }
 
@@ -115,21 +94,20 @@ export async function convertToRegistered(
 	password: string,
 	passwordConfirmation: string
 ): Promise<User> {
-	const response = await fetch(`${API_URL}/account/convert`, {
+	const response = await authenticatedFetch(`${API_URL}/account/convert`, {
 		method: 'POST',
-		headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+		headers: { 'Content-Type': 'application/json' },
 		body: JSON.stringify({
 			username,
 			password,
 			password_confirmation: passwordConfirmation
-		}),
-		credentials: 'include'
+		})
 	});
 
 	if (!response.ok) {
 		await throwApiError(response, 'Failed to convert account');
 	}
 
-	const data: { user: UserDto } = await response.json();
+	const data = await response.json();
 	return toUser(data.user);
 }

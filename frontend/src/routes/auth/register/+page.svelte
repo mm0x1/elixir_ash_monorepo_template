@@ -59,6 +59,7 @@
 						id="username"
 						name="username"
 						type="text"
+						autocomplete="username"
 						required
 						bind:value={username}
 						disabled={loading}
@@ -73,6 +74,7 @@
 						id="password"
 						name="password"
 						type="password"
+						autocomplete="new-password"
 						required
 						bind:value={password}
 						disabled={loading}
@@ -89,6 +91,7 @@
 						id="password-confirmation"
 						name="password-confirmation"
 						type="password"
+						autocomplete="new-password"
 						required
 						bind:value={passwordConfirmation}
 						disabled={loading}

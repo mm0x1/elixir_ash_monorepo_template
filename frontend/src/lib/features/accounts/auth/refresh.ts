@@ -15,6 +15,7 @@
  */
 
 import { accessToken } from '$lib/shared/auth/token';
+import { getAuthHeaders } from '$lib/shared/api/client';
 
 // Callbacks registered by store.ts at module load time.
 let _refresh: (() => Promise<void>) | null = null;
@@ -64,4 +65,31 @@ export async function ensureValidToken(): Promise<void> {
 	}
 
 	return refreshPromise;
+}
+
+/**
+ * Fetch wrapper that injects auth headers and retries once on 401 after
+ * refreshing the access token. All authenticated API calls should use this
+ * instead of raw `fetch` + `getAuthHeaders()`.
+ */
+export async function authenticatedFetch(url: string, init?: RequestInit): Promise<Response> {
+	const response = await fetch(url, {
+		...init,
+		headers: { ...init?.headers, ...getAuthHeaders() },
+		credentials: 'include'
+	});
+
+	if (response.status !== 401) return response;
+
+	try {
+		await ensureValidToken();
+	} catch {
+		return response;
+	}
+
+	return fetch(url, {
+		...init,
+		headers: { ...init?.headers, ...getAuthHeaders() },
+		credentials: 'include'
+	});
 }

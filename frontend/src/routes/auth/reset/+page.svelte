@@ -77,6 +77,7 @@
 						id="username"
 						name="username"
 						type="text"
+						autocomplete="username"
 						required
 						bind:value={username}
 						disabled={loading}
@@ -118,6 +119,7 @@
 							id="recovery-code"
 							name="recovery-code"
 							type="text"
+							autocomplete="off"
 							required
 							bind:value={recoveryCode}
 							disabled={loading}
@@ -134,6 +136,7 @@
 							id="new-password"
 							name="new-password"
 							type="password"
+							autocomplete="new-password"
 							required
 							bind:value={newPassword}
 							disabled={loading}

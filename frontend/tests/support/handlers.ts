@@ -57,6 +57,67 @@ export const handlers = [
 		})
 	),
 
+	http.post('*/auth/register', async ({ request }) => {
+		const body = (await request.json()) as {
+			username?: string;
+			password?: string;
+			password_confirmation?: string;
+		};
+
+		if (!body.username || !body.password) {
+			return HttpResponse.json(
+				{ error: 'bad_request', message: 'Username and password are required' },
+				{ status: 400 }
+			);
+		}
+
+		if (body.username === 'taken') {
+			return HttpResponse.json(
+				{
+					error: 'validation_error',
+					message: 'has already been taken',
+					errors: [{ field: 'username', message: 'has already been taken' }]
+				},
+				{ status: 422 }
+			);
+		}
+
+		return HttpResponse.json({
+			access_token: 'test-access-token',
+			expires_in: 900,
+			user: { ...userDto, username: body.username }
+		});
+	}),
+
+	http.post('*/auth/logout', () => HttpResponse.json({ message: 'Logged out' })),
+
+	http.get('*/auth/me', ({ request }) => {
+		const auth = request.headers.get('authorization');
+		if (!auth || !auth.startsWith('Bearer ')) {
+			return HttpResponse.json(
+				{ error: 'unauthorized', message: 'No authorization token provided' },
+				{ status: 401 }
+			);
+		}
+
+		return HttpResponse.json({ user: userDto });
+	}),
+
+	http.patch('*/account/username', async ({ request }) => {
+		const auth = request.headers.get('authorization');
+		if (!auth || !auth.startsWith('Bearer ')) {
+			return HttpResponse.json(
+				{ error: 'unauthorized', message: 'No authorization token provided' },
+				{ status: 401 }
+			);
+		}
+
+		const body = (await request.json()) as { username?: string };
+		return HttpResponse.json({
+			user: { ...userDto, username: body.username ?? userDto.username }
+		});
+	}),
+
 	// By default there is no valid session to refresh, so the app stays logged out.
 	http.post('*/auth/refresh', () =>
 		HttpResponse.json(

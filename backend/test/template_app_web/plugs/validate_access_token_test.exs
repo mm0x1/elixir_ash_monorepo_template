@@ -59,6 +59,32 @@ defmodule TemplateAppWeb.Plugs.ValidateAccessTokenTest do
     end
   end
 
+  describe "expired token" do
+    test "returns 401 for an expired JWT", %{conn: conn} do
+      user = create_user()
+
+      signer =
+        Joken.Signer.create(
+          "HS256",
+          Application.fetch_env!(:template_app, :token_signing_secret)
+        )
+
+      claims = %{
+        "sub" => user.id,
+        "token_version" => user.token_version,
+        "iss" => "template_app",
+        "exp" => DateTime.utc_now() |> DateTime.add(-60) |> DateTime.to_unix()
+      }
+
+      {:ok, expired_token, _} = Joken.encode_and_sign(claims, signer)
+
+      conn = conn |> with_bearer(expired_token) |> call_plug()
+
+      assert conn.status == 401
+      assert conn.halted
+    end
+  end
+
   describe "token for non-existent user" do
     test "returns 401 for a token with a fabricated unknown user ID", %{conn: conn} do
       # Build a token that references a user UUID that doesn't exist in the DB

@@ -1,1 +1,2 @@
-export type { User, UserWithRecoveryCodes, AuthResponse, RefreshResponse, AuthError } from './user';
+export type { User, UserWithRecoveryCodes, AuthResponse, RefreshResponse } from './user';
+export { toUser } from './transforms';

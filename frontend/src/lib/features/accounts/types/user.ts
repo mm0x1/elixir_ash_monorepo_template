@@ -42,14 +42,3 @@ export interface RefreshResponse {
 	expires_in: number;
 }
 
-/**
- * Auth error response
- */
-export interface AuthError {
-	error: string;
-	message: string;
-	errors?: Array<{
-		field: string | null;
-		message: string;
-	}>;
-}

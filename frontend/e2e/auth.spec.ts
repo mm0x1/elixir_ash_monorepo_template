@@ -1,15 +1,5 @@
 import { expect, test } from '@playwright/test';
-
-// The single critical journey: a user signs in and lands on the authenticated
-// home page. The backend is mocked via page.route — no live backend.
-const userDto = {
-	id: '11111111-1111-1111-1111-111111111111',
-	username: 'alice',
-	is_anonymous: false,
-	role: 'user',
-	has_recovery_codes: false,
-	recovery_codes_count: 0
-};
+import { userDto } from '../tests/support/fixtures';
 
 test('signing in lands on the authenticated home page', async ({ page }) => {
 	// No existing session on load.

@@ -12,9 +12,7 @@ export {
 	refreshAccessToken,
 	fetchCurrentUser,
 	initAuth,
-	clearAuth,
-	isAuthenticated,
-	hasRole
+	clearAuth
 } from './store';
 
-export { configureAuthFetch, ensureValidToken } from './refresh';
+export { configureAuthFetch, ensureValidToken, authenticatedFetch } from './refresh';

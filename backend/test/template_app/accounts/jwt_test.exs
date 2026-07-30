@@ -53,5 +53,22 @@ defmodule TemplateApp.Accounts.JWTTest do
     test "rejects garbage input" do
       assert {:error, _} = JWT.verify_access_token("not.a.token")
     end
+
+    test "rejects an expired token" do
+      signer =
+        Joken.Signer.create("HS256", Application.fetch_env!(:template_app, :token_signing_secret))
+
+      claims = %{
+        "sub" => @valid_user.id,
+        "token_version" => @valid_user.token_version,
+        "iss" => "template_app",
+        "exp" => DateTime.utc_now() |> DateTime.add(-60) |> DateTime.to_unix()
+      }
+
+      {:ok, expired_token, _} = Joken.encode_and_sign(claims, signer)
+
+      assert {:error, [message: "Invalid token", claim: "exp", claim_val: _]} =
+               JWT.verify_access_token(expired_token)
+    end
   end
 end
