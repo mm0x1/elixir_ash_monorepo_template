@@ -33,9 +33,9 @@ defmodule TemplateAppWeb.Helpers.ApiResponse do
   @doc """
   403 Forbidden — an Ash policy denial.
   """
-  def forbidden(conn, error, message \\ "Not allowed") do
+  def forbidden(conn, _error, message \\ "Not allowed") do
     conn
     |> put_status(403)
-    |> json(%{error: "forbidden", message: message, errors: format_ash_errors(error)})
+    |> json(%{error: "forbidden", message: message})
   end
 end

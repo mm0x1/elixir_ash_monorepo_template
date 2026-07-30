@@ -80,7 +80,10 @@ if config_env() == :prod do
   config :template_app,
     token_signing_secret:
       System.get_env("TOKEN_SIGNING_SECRET") ||
-        raise("Missing environment variable `TOKEN_SIGNING_SECRET`!")
+        raise("Missing environment variable `TOKEN_SIGNING_SECRET`!"),
+    ash_auth_signing_secret:
+      System.get_env("ASH_AUTH_SIGNING_SECRET") ||
+        raise("Missing environment variable `ASH_AUTH_SIGNING_SECRET`!")
 
   # CORS configuration for production
   frontend_url =

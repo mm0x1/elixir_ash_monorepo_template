@@ -11,6 +11,7 @@ defmodule TemplateApp.Application do
     TemplateApp.Logging.AshLogger.attach()
 
     children = [
+      TemplateApp.RateLimit,
       TemplateAppWeb.Telemetry,
       TemplateApp.Repo,
       {DNSCluster, query: Application.get_env(:template_app, :dns_cluster_query) || :ignore},

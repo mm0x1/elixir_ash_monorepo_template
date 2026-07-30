@@ -76,7 +76,9 @@ config :template_app, TemplateAppWeb.Endpoint,
 config :template_app,
   dev_routes: true,
   token_signing_secret:
-    System.get_env("TOKEN_SIGNING_SECRET") || "jZNCXxZx2uWyAaKU6JLe937jroxossgL"
+    System.get_env("TOKEN_SIGNING_SECRET") || "jZNCXxZx2uWyAaKU6JLe937jroxossgL",
+  ash_auth_signing_secret:
+    System.get_env("ASH_AUTH_SIGNING_SECRET") || "vF9kPmRhTn3qYw8xBc2dWe5gHj7iLo0s"
 
 # Include metadata in development logs for better debugging
 # Metadata keys are inherited from config/config.exs

@@ -18,9 +18,15 @@ defmodule TemplateAppWeb.AuthController do
   alias TemplateApp.Accounts.JWT
   alias TemplateApp.Accounts.Resources.RefreshToken
   alias TemplateAppWeb.Helpers.ApiResponse
+  alias TemplateAppWeb.Plugs.RateLimitPlug
 
   require Ash.Query
   require Logger
+
+  plug RateLimitPlug, [action: :login] when action in [:login]
+  plug RateLimitPlug, [action: :register] when action in [:register]
+  plug RateLimitPlug, [action: :request_reset] when action in [:request_reset]
+  plug RateLimitPlug, [action: :reset_password] when action in [:reset_password]
 
   @refresh_token_cookie "_template_app_refresh"
   @refresh_token_max_age 7 * 24 * 60 * 60

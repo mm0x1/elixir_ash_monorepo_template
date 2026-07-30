@@ -76,9 +76,9 @@ defmodule TemplateApp.MixProject do
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
       {:sobelow, "~> 0.13", only: [:dev, :test], runtime: false},
       {:ash_ops, "~> 0.1", only: [:dev]},
-      # Phase 2: Token-based auth
       {:cors_plug, "~> 3.0"},
-      {:joken, "~> 2.6"}
+      {:joken, "~> 2.6"},
+      {:hammer, "~> 7.4"}
     ]
   end
 

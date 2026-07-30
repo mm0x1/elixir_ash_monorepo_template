@@ -1,5 +1,9 @@
 import Config
-config :template_app, token_signing_secret: "l8smtRvlNLSrp7Gwdu+3kn/uAIhHEjNY"
+
+config :template_app,
+  token_signing_secret: "l8smtRvlNLSrp7Gwdu+3kn/uAIhHEjNY",
+  ash_auth_signing_secret: "x7mQpRvKt9nWfYc3bJ5hLe8gAi2dUo4s"
+
 config :ash, policies: [show_policy_breakdowns?: true]
 
 # Configure your database
