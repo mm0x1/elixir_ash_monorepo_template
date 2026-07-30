@@ -34,8 +34,6 @@ defmodule TemplateAppWeb do
     quote do
       use Phoenix.Controller, formats: [:html, :json]
 
-      use Gettext, backend: TemplateAppWeb.Gettext
-
       import Plug.Conn
       import Phoenix.LiveView.Controller
 
@@ -58,9 +56,6 @@ defmodule TemplateAppWeb do
 
   defp html_helpers do
     quote do
-      # Translation
-      use Gettext, backend: TemplateAppWeb.Gettext
-
       # HTML escaping functionality
       import Phoenix.HTML
 

@@ -67,7 +67,6 @@ config :template_app, TemplateAppWeb.Endpoint,
     web_console_logger: true,
     patterns: [
       ~r"priv/static/(?!uploads/).*(js|css|png|jpeg|jpg|gif|svg)$",
-      ~r"priv/gettext/.*(po)$",
       ~r"lib/template_app_web/(?:controllers|live|components|router)/?.*\.(ex|heex)$"
     ]
   ]

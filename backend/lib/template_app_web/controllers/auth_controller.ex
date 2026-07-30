@@ -58,12 +58,18 @@ defmodule TemplateAppWeb.AuthController do
         "password" => password,
         "password_confirmation" => password_confirmation
       }) do
-    case Accounts.create_user(username, password, password_confirmation) do
-      {:ok, user} ->
-        create_tokens_and_respond(conn, user, 201)
+    if TemplateApp.Config.registration_enabled?() do
+      case Accounts.create_user(username, password, password_confirmation) do
+        {:ok, user} ->
+          create_tokens_and_respond(conn, user, 201)
 
-      {:error, error} ->
-        ApiResponse.validation_error(conn, error, "Registration failed")
+        {:error, error} ->
+          ApiResponse.validation_error(conn, error, "Registration failed")
+      end
+    else
+      conn
+      |> put_status(403)
+      |> json(%{error: "registration_disabled", message: "Registration is currently disabled"})
     end
   end
 
