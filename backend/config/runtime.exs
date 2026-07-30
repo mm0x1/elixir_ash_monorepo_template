@@ -23,6 +23,11 @@ end
 # Set environment for runtime detection (cookie security, logging verbosity)
 config :template_app, env: config_env()
 
+# Override log level at runtime (supports debug, info, warning, error)
+if log_level = System.get_env("LOG_LEVEL") do
+  config :logger, level: String.to_existing_atom(log_level)
+end
+
 if config_env() == :prod do
   database_url =
     System.get_env("DATABASE_URL") ||

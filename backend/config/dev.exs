@@ -36,10 +36,7 @@ config :template_app, TemplateAppWeb.Endpoint,
     http_only: true,
     same_site: "Lax"
   ],
-  watchers: [
-    # Tailwind disabled - Svelte uses its own build
-    # tailwind: {Tailwind, :install_and_run, [:template_app, ~w(--watch)]}
-  ]
+  watchers: []
 
 # ## SSL Support
 #

@@ -78,17 +78,6 @@ config :template_app, TemplateAppWeb.Endpoint,
 # Note: Response compression should be handled at the infrastructure level
 # (nginx, load balancer, CDN) for optimal performance
 
-# Tailwind disabled - Svelte uses its own Tailwind build
-# config :tailwind,
-#   version: "4.1.7",
-#   template_app: [
-#     args: ~w(
-#       --input=frontend/src/App.css
-#       --output=priv/static/assets/css/app.css
-#     ),
-#     cd: Path.expand("..", __DIR__)
-#   ]
-
 # Configures Elixir's Logger with enhanced metadata
 # Declaring all metadata keys enables structured logging and log aggregation
 config :logger, :default_formatter,
@@ -137,10 +126,6 @@ config :logger, :default_formatter,
     :search_query,
     :page
   ]
-
-# Configure logger level from environment
-config :logger,
-  level: String.to_existing_atom(System.get_env("LOG_LEVEL") || "info")
 
 # Use Jason for JSON parsing in Phoenix
 config :phoenix, :json_library, Jason

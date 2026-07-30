@@ -1,6 +1,5 @@
 import Config
 config :template_app, token_signing_secret: "l8smtRvlNLSrp7Gwdu+3kn/uAIhHEjNY"
-config :bcrypt_elixir, log_rounds: 1
 config :ash, policies: [show_policy_breakdowns?: true]
 
 # Configure your database

@@ -54,7 +54,7 @@ defmodule TemplateApp.Accounts.Resources.User do
   end
 
   actions do
-    defaults [:read, :update]
+    defaults [:read]
 
     read :by_id do
       description "Load user by ID"

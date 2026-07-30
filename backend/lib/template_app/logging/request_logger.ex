@@ -51,7 +51,15 @@ defmodule TemplateApp.Logging.RequestLogger do
 
   defp sanitize_params(params) when is_map(params) do
     params
-    |> Map.drop(["password", "password_confirmation", "token", "secret", "_csrf_token"])
+    |> Map.drop([
+      "password",
+      "password_confirmation",
+      "token",
+      "secret",
+      "_csrf_token",
+      "recovery_code",
+      "new_password"
+    ])
     |> inspect(limit: 500, pretty: false)
   end
 

@@ -7,7 +7,7 @@ defmodule TemplateAppWeb.Endpoint do
   @session_options [
     store: :cookie,
     key: "_template_app_key",
-    signing_salt: "dLRs+d/v",
+    signing_salt: "O9miAQI7",
     same_site: "Lax"
   ]
 
@@ -59,9 +59,6 @@ defmodule TemplateAppWeb.Endpoint do
   # Security headers
   plug :put_security_headers
 
-  # CORS - must be before router to handle OPTIONS preflight requests
-  plug CORSPlug
-
   plug TemplateAppWeb.Router
 
   # Security headers function
@@ -78,7 +75,7 @@ defmodule TemplateAppWeb.Endpoint do
   end
 
   defp put_hsts_header(conn) do
-    if Application.get_env(:template_app, :environment) == :prod do
+    if Application.get_env(:template_app, :env) == :prod do
       Plug.Conn.put_resp_header(
         conn,
         "strict-transport-security",
@@ -92,7 +89,7 @@ defmodule TemplateAppWeb.Endpoint do
   defp put_csp_header(conn) do
     # More restrictive CSP for production
     csp_policy =
-      if Application.get_env(:template_app, :environment) == :prod do
+      if Application.get_env(:template_app, :env) == :prod do
         "default-src 'self'; " <>
           "script-src 'self' https://cdnjs.cloudflare.com; " <>
           "style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com; " <>

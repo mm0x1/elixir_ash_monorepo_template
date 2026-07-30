@@ -56,11 +56,6 @@ defmodule TemplateApp.Accounts.Resources.RefreshToken do
       argument :user_id, :uuid, allow_nil?: false
       filter expr(user_id == ^arg(:user_id))
     end
-
-    destroy :delete_for_user do
-      argument :user_id, :uuid, allow_nil?: false
-      filter expr(user_id == ^arg(:user_id))
-    end
   end
 
   policies do

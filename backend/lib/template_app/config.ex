@@ -1,10 +1,9 @@
 defmodule TemplateApp.Config do
   @moduledoc """
-  Centralized configuration module for the SAAS template.
+  Centralized configuration module for the application template.
 
-  This module provides a clean interface for reading configuration values
-  from environment variables and application config, making it easy to
-  customize the template for different SAAS applications.
+  Provides a clean interface for reading configuration values from
+  environment variables and application config.
   """
 
   @doc """
@@ -12,14 +11,14 @@ defmodule TemplateApp.Config do
   Defaults to "SAAS Template" if not configured.
   """
   def app_name do
-    System.get_env("APP_NAME", "SAAS Template")
+    System.get_env("APP_NAME", "Template App")
   end
 
   @doc """
   Get the application description for meta tags and branding.
   """
   def app_description do
-    System.get_env("APP_DESCRIPTION", "A modern SAAS application built with Phoenix and Ash")
+    System.get_env("APP_DESCRIPTION", "A modern web application built with Phoenix and Ash")
   end
 
   @doc """

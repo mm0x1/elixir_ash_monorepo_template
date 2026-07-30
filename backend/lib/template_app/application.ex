@@ -32,7 +32,7 @@ defmodule TemplateApp.Application do
     require Logger
 
     Logger.info("Application started successfully", %{
-      environment: Application.get_env(:template_app, :environment),
+      environment: Application.get_env(:template_app, :env),
       node: Node.self()
     })
 

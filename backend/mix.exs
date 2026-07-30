@@ -10,9 +10,19 @@ defmodule TemplateApp.MixProject do
       start_permanent: Mix.env() == :prod,
       aliases: aliases(),
       deps: deps(),
+      usage_rules: usage_rules(),
       compilers: Mix.compilers(),
       listeners: [Phoenix.CodeReloader],
       consolidate_protocols: Mix.env() != :dev
+    ]
+  end
+
+  # usage_rules: which package rules to sync into backend/AGENTS.md.
+  # Config is the source of truth — run `mix usage_rules.sync` to regenerate.
+  defp usage_rules do
+    [
+      file: "AGENTS.md",
+      usage_rules: [:usage_rules, :ash, ~r/^ash_/, :igniter]
     ]
   end
 
@@ -36,34 +46,32 @@ defmodule TemplateApp.MixProject do
   defp deps do
     [
       {:usage_rules, "~> 1.2", only: [:dev]},
-      {:bcrypt_elixir, "~> 3.0"},
       {:picosat_elixir, "~> 0.2"},
-      {:sourceror, "~> 1.8", only: [:dev, :test]},
-      {:ash_admin, "~> 1.1"},
-      {:ash_authentication_phoenix, "~> 2.15"},
-      {:ash_authentication, "~> 4.13"},
-      {:ash_postgres, "~> 2.6"},
+      {:sourceror, "~> 1.12", only: [:dev, :test]},
+      {:ash_admin, "~> 1.2"},
+      {:ash_authentication_phoenix, "~> 2.17"},
+      {:ash_authentication, "~> 4.14"},
+      {:ash_postgres, "~> 2.11"},
       {:ash_phoenix, "~> 2.3"},
-      {:ash, "~> 3.13"},
-      {:igniter, "~> 0.7", only: [:dev, :test]},
-      {:phoenix, "~> 1.8.0"},
+      {:ash, "~> 3.31"},
+      {:igniter, "~> 0.8", only: [:dev, :test]},
+      {:phoenix, "~> 1.8"},
       {:phoenix_ecto, "~> 4.5"},
       {:ecto_sql, "~> 3.13"},
       {:postgrex, "~> 0.22"},
       {:phoenix_html, "~> 4.1"},
-      {:phoenix_live_reload, "~> 1.6", only: :dev},
-      {:phoenix_live_view, "~> 1.1"},
+      {:phoenix_live_reload, "~> 1.7", only: :dev},
+      {:phoenix_live_view, "~> 1.2"},
       {:lazy_html, ">= 0.1.0", only: :test},
       {:phoenix_live_dashboard, "~> 0.8.3"},
-      {:tailwind, "~> 0.3", runtime: Mix.env() == :dev},
       {:telemetry_metrics, "~> 1.0"},
       {:telemetry_poller, "~> 1.0"},
       {:gettext, "~> 1.0"},
       {:jason, "~> 1.2"},
       {:dns_cluster, "~> 0.2.0"},
-      {:bandit, "~> 1.8"},
+      {:bandit, "~> 1.12"},
       {:argon2_elixir, "~> 4.1"},
-      {:tidewave, "~> 0.5", only: :dev},
+      {:tidewave, "~> 0.8", only: :dev},
       {:dialyxir, "~> 1.4", only: [:dev], runtime: false},
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
       {:sobelow, "~> 0.13", only: [:dev, :test], runtime: false},
@@ -109,15 +117,12 @@ defmodule TemplateApp.MixProject do
         "cmd --cd ../frontend npm run lint:fix"
       ],
       "assets.setup": [
-        # "tailwind.install --if-missing",  # Disabled during migration
         "cmd --cd ../frontend npm install"
       ],
       "assets.build": [
-        # "tailwind template_app",  # Disabled during migration
         "cmd --cd ../frontend npm run build"
       ],
       "assets.deploy": [
-        # "tailwind template_app --minify",  # Disabled during migration
         "cmd --cd ../frontend npm run build",
         "phx.digest"
       ]
