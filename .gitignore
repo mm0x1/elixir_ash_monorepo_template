@@ -104,3 +104,8 @@ data/
 
 # Lefthook local configuration (optional override)
 lefthook-local.yml
+
+# =============================================================================
+# AI workflow scratch (planning artifacts — not committed)
+# =============================================================================
+.ai/

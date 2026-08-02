@@ -80,14 +80,14 @@ REST endpoints (see `router.ex`): public `POST /auth/{login,register,refresh,req
 | Access | 15 min | Svelte store (memory) | stateless JWT, every request |
 | Refresh | 7 days | HttpOnly cookie | DB-backed, only `/auth/refresh` |
 
-The frontend's `features/accounts/api/*` wrappers use `authenticatedFetch` (from `auth/refresh.ts`) which injects auth headers and retries once on 401 after refreshing the access token. Backend DTOs (snake_case) are transformed into UI types via a shared `toUser()` in `types/transforms.ts`.
+The frontend's API calls go through `api.get/post/patch/put/delete` from `shared/api/client` (handles JSON, credentials, errors). Authenticated endpoints pass `{ fetchFn: authenticatedFetch }` — `authenticatedFetch` (from `auth/refresh.ts`) injects auth headers and retries once on 401. Backend DTOs (snake_case) are transformed into UI types via a shared `toUser()` in `types/transforms.ts`.
 
 ## Critical rules
 
 1. **Resolve the actor for Ash** — `ValidateAccessToken` must call `Ash.PlugHelpers.set_actor(conn, user)` (not just `assign`). Without it, update/create/destroy actions return Forbidden (reads pass via `authorize_if always()`).
 2. **Policies are deny-by-default** — explicitly allow each action. `action(:read)` matches only the default `:read`; use `action_type(:read)` to cover named read actions.
 3. **`features → shared` is one-way** — shared code never imports from `features/` (ESLint enforced).
-4. **API wrappers use `authenticatedFetch`** — components consume UI types, never raw backend shapes. Authenticated requests go through `authenticatedFetch` (auto-injects auth headers, retries on 401). Public endpoints (login, register, refresh) use raw `fetch`.
+4. **API calls use the `api` helper** — `api.get/post/patch/put/delete` from `shared/api/client` handles JSON serialization, credentials, and error throwing. Authenticated endpoints pass `{ fetchFn: authenticatedFetch }`. Components consume UI types, never raw backend shapes.
 5. **Svelte 5 runes in components** — `$state`, `$derived`, `$effect`, `$props` (not legacy stores).
 
 ## Patterns
@@ -107,18 +107,16 @@ end
 
 ```typescript
 // REST API wrapper (frontend/src/lib/features/accounts/api/accounts.ts)
-import { API_URL, ApiError } from '$lib/shared/api/client';
-import { authenticatedFetch } from '$lib/features/accounts/auth/refresh';
+import { api } from '$lib/shared/api/client';
+import type { UserDto } from '$lib/features/accounts/types';
 import { toUser } from '$lib/features/accounts/types';
+import { authenticatedFetch } from '$lib/features/accounts/auth/refresh';
 
 export async function updateUsername(_userId: string, username: string): Promise<User> {
-  const res = await authenticatedFetch(`${API_URL}/account/username`, {
-    method: 'PATCH',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ username })
+  const data = await api.patch<{ user: UserDto }>('/account/username', { username }, {
+    fetchFn: authenticatedFetch, errorMessage: 'Failed to update username'
   });
-  if (!res.ok) throw new ApiError(/* mapped errors */, res.status);
-  return toUser((await res.json()).user);
+  return toUser(data.user);
 }
 ```
 

@@ -1,26 +1,18 @@
 <script lang="ts">
 	import { currentUser } from '$lib/features/accounts';
-	import { updateUsername, ApiError, mapFieldErrors } from '$lib/features/accounts';
+	import { updateUsername, ApiError } from '$lib/features/accounts';
 	import { notifications } from '$lib/shared/stores';
-	import { goto } from '$app/navigation';
+	import FormAlert from '$lib/shared/components/FormAlert.svelte';
 	import { resolve } from '$app/paths';
 	import { onMount } from 'svelte';
 
 	let username = $state('');
 	let error = $state('');
-	let fieldErrors = $state<Record<string, string[]>>({});
 	let loading = $state(false);
 	let success = $state(false);
 
-	let usernameInputClass = $derived(
-		`mt-1 block w-full px-3 py-2 border ${fieldErrors.username?.length ? 'border-red-500' : 'border-gray-300'} rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm disabled:opacity-50`
-	);
-
-	// Redirect if not logged in, initialize username
 	onMount(() => {
-		if (!$currentUser) {
-			goto(resolve('/auth/login'));
-		} else {
+		if ($currentUser) {
 			username = $currentUser.displayName;
 		}
 	});
@@ -30,7 +22,6 @@
 		if (!$currentUser) return;
 
 		error = '';
-		fieldErrors = {};
 		success = false;
 		loading = true;
 
@@ -40,12 +31,7 @@
 			success = true;
 			notifications.success('Username updated successfully');
 		} catch (e) {
-			if (e instanceof ApiError) {
-				fieldErrors = mapFieldErrors(e.errors);
-				error = fieldErrors._general?.join(', ') || '';
-			} else {
-				error = e instanceof Error ? e.message : 'Failed to update username';
-			}
+			error = e instanceof ApiError ? e.message : 'Something went wrong';
 		} finally {
 			loading = false;
 		}
@@ -102,21 +88,11 @@
 
 				<form onsubmit={handleUsernameUpdate} class="space-y-4">
 					{#if error}
-						<div
-							class="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded"
-							role="alert"
-						>
-							{error}
-						</div>
+						<FormAlert message={error} />
 					{/if}
 
 					{#if success}
-						<div
-							class="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded"
-							role="alert"
-						>
-							Username updated successfully!
-						</div>
+						<FormAlert message="Username updated successfully!" variant="success" />
 					{/if}
 
 					<div>
@@ -129,11 +105,8 @@
 							required
 							bind:value={username}
 							disabled={loading}
-							class={usernameInputClass}
+							class="mt-1 block w-full px-3 py-2 border border-gray-300 text-gray-900 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm disabled:opacity-50"
 						/>
-						{#if fieldErrors.username?.length}
-							<p class="mt-1 text-sm text-red-600">{fieldErrors.username.join(', ')}</p>
-						{/if}
 					</div>
 
 					<button
@@ -212,9 +185,5 @@
 				</div>
 			{/if}
 		</div>
-	</div>
-{:else}
-	<div class="min-h-screen flex items-center justify-center" role="status" aria-label="Loading">
-		<div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
 	</div>
 {/if}

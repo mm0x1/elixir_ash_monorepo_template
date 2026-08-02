@@ -2,6 +2,7 @@
 	import { currentUser } from '$lib/features/accounts';
 	import { generateRecoveryCodes, ApiError } from '$lib/features/accounts';
 	import { notifications } from '$lib/shared/stores';
+	import FormAlert from '$lib/shared/components/FormAlert.svelte';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { onMount } from 'svelte';
@@ -12,11 +13,8 @@
 	let showCodes = $state(false);
 	let copied = $state(false);
 
-	// Redirect guests to profile
 	onMount(() => {
-		if (!$currentUser) {
-			goto(resolve('/auth/login'));
-		} else if ($currentUser.isGuest) {
+		if ($currentUser?.isGuest) {
 			notifications.warning('Recovery codes are only available for registered accounts');
 			goto(resolve('/profile'));
 		}
@@ -36,11 +34,7 @@
 			currentUser.set(result);
 			notifications.success('Recovery codes generated successfully');
 		} catch (e) {
-			if (e instanceof ApiError) {
-				error = e.message;
-			} else {
-				error = e instanceof Error ? e.message : 'Failed to generate recovery codes';
-			}
+			error = e instanceof ApiError ? e.message : 'Something went wrong';
 		} finally {
 			loading = false;
 		}
@@ -124,12 +118,7 @@
 						{/if}
 
 						{#if error}
-							<div
-								class="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded"
-								role="alert"
-							>
-								{error}
-							</div>
+							<FormAlert message={error} />
 						{/if}
 
 						<button
@@ -236,9 +225,5 @@
 				</div>
 			{/if}
 		</div>
-	</div>
-{:else}
-	<div class="min-h-screen flex items-center justify-center">
-		<div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
 	</div>
 {/if}

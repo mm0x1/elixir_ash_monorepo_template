@@ -7,6 +7,7 @@
  */
 
 import type { User } from '../../src/lib/features/accounts/types';
+import type { UserDto } from '../../src/lib/features/accounts/types/user';
 
 /** Backend `user` DTO as returned by `/auth/*` and `/account/*`. */
 export const userDto = {
@@ -16,7 +17,7 @@ export const userDto = {
 	role: 'user' as const,
 	has_recovery_codes: false,
 	recovery_codes_count: 0
-};
+} satisfies UserDto;
 
 /** UI `User` equivalent of `userDto` (post API-boundary transform). */
 export const user: User = {

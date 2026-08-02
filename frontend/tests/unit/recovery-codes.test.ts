@@ -19,12 +19,9 @@ import { user, userWithCodes, guestUser, recoveryCodes } from '../support/fixtur
 afterEach(() => currentUser.set(null));
 
 describe('recovery-codes gating', () => {
-	it('redirects to login when there is no current user', async () => {
-		currentUser.set(null);
-		render(RecoveryCodesPage);
-
-		await vi.waitFor(() => expect(goto).toHaveBeenCalledWith('/auth/login'));
-	});
+	// Auth redirect (unauthenticated → /auth/login) is handled by the profile
+	// layout, not the page itself. These tests render the page in isolation
+	// without the layout, so only page-level gating is tested here.
 
 	it('redirects guests to the profile page', async () => {
 		currentUser.set(guestUser);

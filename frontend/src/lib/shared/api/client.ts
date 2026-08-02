@@ -1,23 +1,11 @@
 /**
- * Base API utilities: URL, auth headers, error types, field error mapping.
+ * Base API utilities: URL, auth headers, error class.
  * This module has no dependency on the auth store — it only reads the token
  * from the standalone token.ts store.
  */
 
 import { get } from 'svelte/store';
 import { accessToken } from '$lib/shared/auth/token';
-
-/**
- * A single API error. Mirrors the shape returned by the REST endpoints:
- * a human-readable message plus the form fields it applies to (empty for
- * general errors). `type`/`details` carry optional transport metadata.
- */
-export interface ApiFieldError {
-	message: string;
-	fields: string[];
-	type?: string;
-	details?: { statusCode?: number };
-}
 
 /**
  * API base URL - defaults to same origin, can be overridden via env var
@@ -33,69 +21,86 @@ export function getAuthHeaders(): Record<string, string> {
 }
 
 /**
- * Custom error class for API errors
+ * Custom error class for API errors.
+ * Both public (store.ts) and authenticated (accounts.ts) endpoints throw this.
  */
 export class ApiError extends Error {
 	constructor(
-		public errors: ApiFieldError[],
-		public statusCode?: number
+		public override readonly message: string,
+		public readonly statusCode: number,
+		public readonly messages: string[] = [],
+		public readonly errorCode?: string
 	) {
-		const firstMessage = errors[0]?.message || 'API error';
-		super(firstMessage);
+		super(message);
 		this.name = 'ApiError';
 	}
 
-	/**
-	 * Check if this is an auth error (401)
-	 */
 	isAuthError(): boolean {
-		return (
-			this.statusCode === 401 ||
-			this.statusCode === 403 ||
-			this.errors.some(
-				(e) =>
-					e.type === 'network_error' &&
-					(e.details?.statusCode === 401 || e.details?.statusCode === 403)
-			)
-		);
-	}
-
-	/**
-	 * Get field-specific errors
-	 */
-	getFieldErrors(): Record<string, string[]> {
-		const fieldErrors: Record<string, string[]> = {};
-		for (const error of this.errors) {
-			for (const field of error.fields) {
-				if (!fieldErrors[field]) {
-					fieldErrors[field] = [];
-				}
-				fieldErrors[field].push(error.message);
-			}
-		}
-		return fieldErrors;
+		return this.statusCode === 401 || this.statusCode === 403;
 	}
 }
 
 /**
- * Map an API error array to a field-level error record
+ * Throw a typed `ApiError` from a failed response.
+ * 5xx responses always get a generic message; 4xx use the backend's message.
  */
-export function mapFieldErrors(errors: ApiFieldError[]): Record<string, string[]> {
-	const fieldErrors: Record<string, string[]> = {};
-	for (const error of errors) {
-		if (error.fields.length === 0) {
-			if (!fieldErrors._general) {
-				fieldErrors._general = [];
-			}
-			fieldErrors._general.push(error.message);
-		} else {
-			for (const field of error.fields) {
-				if (!fieldErrors[field]) {
-					fieldErrors[field] = [];
-				}
-				fieldErrors[field].push(error.message);
-			}
-		}
+export async function throwApiError(response: Response, fallback: string): Promise<never> {
+	if (response.status >= 500) {
+		throw new ApiError('Something went wrong', response.status);
 	}
-	return fieldErrors;
+	let body: { message?: string; messages?: string[]; error?: string } = {};
+	try {
+		body = await response.json();
+	} catch {
+		// Non-JSON body
+	}
+	throw new ApiError(
+		body.message ?? fallback,
+		response.status,
+		body.messages ?? [],
+		body.error
+	);
 }
+
+type FetchLike = (url: string, init?: RequestInit) => Promise<Response>;
+
+export type ApiRequestOptions = {
+	readonly headers?: Record<string, string>;
+	readonly errorMessage?: string;
+	readonly fetchFn?: FetchLike;
+};
+
+async function request<T>(
+	method: string,
+	path: string,
+	body?: unknown,
+	opts?: ApiRequestOptions
+): Promise<T> {
+	const fetchFn = opts?.fetchFn ?? fetch;
+	const response = await fetchFn(`${API_URL}${path}`, {
+		method,
+		headers: {
+			...(body !== undefined ? { 'Content-Type': 'application/json' } : {}),
+			...opts?.headers
+		},
+		...(body !== undefined ? { body: JSON.stringify(body) } : {}),
+		credentials: 'include'
+	});
+
+	if (!response.ok) {
+		await throwApiError(response, opts?.errorMessage ?? 'Request failed');
+	}
+
+	return response.json() as Promise<T>;
+}
+
+export const api = {
+	get: <T>(path: string, opts?: ApiRequestOptions) => request<T>('GET', path, undefined, opts),
+	post: <T>(path: string, body?: unknown, opts?: ApiRequestOptions) =>
+		request<T>('POST', path, body, opts),
+	patch: <T>(path: string, body?: unknown, opts?: ApiRequestOptions) =>
+		request<T>('PATCH', path, body, opts),
+	put: <T>(path: string, body?: unknown, opts?: ApiRequestOptions) =>
+		request<T>('PUT', path, body, opts),
+	delete: <T>(path: string, opts?: ApiRequestOptions) => request<T>('DELETE', path, undefined, opts)
+};

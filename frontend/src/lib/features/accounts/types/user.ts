@@ -1,44 +1,39 @@
 /**
- * UI-facing User type.
- * Components and routes should use this type, NOT the generated DTOs.
+ * Backend user DTO — single source of truth for the serialized user shape.
  */
-export interface User {
-	id: string;
-	displayName: string;
-	isGuest: boolean;
-	role: 'user' | 'admin' | 'superadmin';
-	hasRecoveryCodes: boolean;
-	recoveryCodesCount: number | null;
-}
+export type UserDto = {
+	readonly id: string;
+	readonly username: string;
+	readonly is_anonymous: boolean;
+	readonly role: 'user' | 'admin' | 'superadmin';
+	readonly has_recovery_codes: boolean;
+	readonly recovery_codes_count: number | null;
+};
 
-/**
- * User with recovery codes (only returned once when generating new codes)
- */
-export interface UserWithRecoveryCodes extends User {
-	recoveryCodes: string[];
-}
+export type User = {
+	readonly id: string;
+	readonly displayName: string;
+	readonly isGuest: boolean;
+	readonly role: 'user' | 'admin' | 'superadmin';
+	readonly hasRecoveryCodes: boolean;
+	readonly recoveryCodesCount: number | null;
+};
 
-/**
- * Auth response from login/register endpoints
- */
-export interface AuthResponse {
-	access_token: string;
-	expires_in: number;
-	user: {
-		id: string;
-		username: string;
-		is_anonymous: boolean;
-		role: 'user' | 'admin' | 'superadmin';
-		has_recovery_codes: boolean;
-		recovery_codes_count: number;
-	};
-}
+export type UserWithRecoveryCodes = User & {
+	readonly recoveryCodes: string[];
+};
 
-/**
- * Token refresh response
- */
-export interface RefreshResponse {
-	access_token: string;
-	expires_in: number;
-}
+export type AuthResponse = {
+	readonly access_token: string;
+	readonly expires_in: number;
+	readonly user: UserDto;
+};
 
+export type RefreshResponse = {
+	readonly access_token: string;
+	readonly expires_in: number;
+};
+
+export type UserResponse = {
+	readonly user: UserDto;
+};

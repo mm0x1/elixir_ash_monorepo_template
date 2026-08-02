@@ -39,7 +39,7 @@
 				class="border-l-4 p-4 rounded-r shadow-lg flex items-start gap-3 {getTypeStyles(
 					notification.type
 				)}"
-				role="alert"
+				role={notification.type === 'error' ? 'alert' : 'status'}
 			>
 				<span class={getIconColor(notification.type)}>
 					{#if notification.type === 'success'}

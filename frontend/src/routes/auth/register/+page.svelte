@@ -1,8 +1,15 @@
 <script lang="ts">
-	import { register } from '$lib/features/accounts';
+	import { register, currentUser, ApiError } from '$lib/features/accounts';
 	import { notifications } from '$lib/shared/stores';
+	import FormAlert from '$lib/shared/components/FormAlert.svelte';
+	import ButtonSpinner from '$lib/shared/components/ButtonSpinner.svelte';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
+	import { onMount } from 'svelte';
+
+	onMount(() => {
+		if ($currentUser) goto(resolve('/'));
+	});
 
 	let username = $state('');
 	let password = $state('');
@@ -26,7 +33,7 @@
 			notifications.success('Account created successfully');
 			goto(resolve('/'));
 		} catch (e) {
-			error = e instanceof Error ? e.message : 'Registration failed';
+			error = e instanceof ApiError ? e.message : 'Something went wrong';
 		} finally {
 			loading = false;
 		}
@@ -47,9 +54,7 @@
 
 		<form class="mt-8 space-y-6" onsubmit={handleSubmit}>
 			{#if error}
-				<div class="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded" role="alert">
-					{error}
-				</div>
+				<FormAlert message={error} />
 			{/if}
 
 			<div class="space-y-4">
@@ -63,7 +68,7 @@
 						required
 						bind:value={username}
 						disabled={loading}
-						class="mt-1 appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm disabled:opacity-50"
+						class="mt-1 block w-full px-3 py-2 border border-gray-300 text-gray-900 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm disabled:opacity-50"
 						placeholder="Choose a username"
 					/>
 				</div>
@@ -78,7 +83,7 @@
 						required
 						bind:value={password}
 						disabled={loading}
-						class="mt-1 appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm disabled:opacity-50"
+						class="mt-1 block w-full px-3 py-2 border border-gray-300 text-gray-900 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm disabled:opacity-50"
 						placeholder="Create a password"
 					/>
 				</div>
@@ -95,7 +100,7 @@
 						required
 						bind:value={passwordConfirmation}
 						disabled={loading}
-						class="mt-1 appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm disabled:opacity-50"
+						class="mt-1 block w-full px-3 py-2 border border-gray-300 text-gray-900 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm disabled:opacity-50"
 						placeholder="Confirm your password"
 					/>
 				</div>
@@ -108,21 +113,7 @@
 			>
 				{#if loading}
 					<span class="absolute left-0 inset-y-0 flex items-center pl-3">
-						<svg class="animate-spin h-5 w-5 text-white" fill="none" viewBox="0 0 24 24">
-							<circle
-								class="opacity-25"
-								cx="12"
-								cy="12"
-								r="10"
-								stroke="currentColor"
-								stroke-width="4"
-							></circle>
-							<path
-								class="opacity-75"
-								fill="currentColor"
-								d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-							></path>
-						</svg>
+						<ButtonSpinner />
 					</span>
 					Creating account...
 				{:else}

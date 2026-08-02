@@ -118,6 +118,21 @@ export const handlers = [
 		});
 	}),
 
+	http.post('*/account/convert', async ({ request }) => {
+		const auth = request.headers.get('authorization');
+		if (!auth || !auth.startsWith('Bearer ')) {
+			return HttpResponse.json(
+				{ error: 'unauthorized', message: 'No authorization token provided' },
+				{ status: 401 }
+			);
+		}
+
+		const body = (await request.json()) as { username?: string };
+		return HttpResponse.json({
+			user: { ...userDto, username: body.username ?? userDto.username, is_anonymous: false }
+		});
+	}),
+
 	// By default there is no valid session to refresh, so the app stays logged out.
 	http.post('*/auth/refresh', () =>
 		HttpResponse.json(

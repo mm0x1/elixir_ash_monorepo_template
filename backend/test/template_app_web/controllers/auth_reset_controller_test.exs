@@ -31,10 +31,13 @@ defmodule TemplateAppWeb.AuthResetControllerTest do
       assert Enum.all?(codes, &is_binary/1)
     end
 
-    test "returns 404 for an unknown username", %{conn: conn} do
+    test "returns fake recovery codes for an unknown username (anti-enumeration)", %{conn: conn} do
       conn = post(conn, ~p"/auth/request-reset", %{username: "ghost"})
 
-      assert %{"error" => "user_not_found"} = json_response(conn, 404)
+      assert %{"recovery_codes" => codes} = json_response(conn, 200)
+      assert is_list(codes)
+      assert length(codes) == TemplateApp.Config.recovery_code_count()
+      assert Enum.all?(codes, &is_binary/1)
     end
 
     test "returns 400 when username is missing", %{conn: conn} do
@@ -126,7 +129,9 @@ defmodule TemplateAppWeb.AuthResetControllerTest do
       assert %{"error" => "validation_error"} = json_response(conn, 422)
     end
 
-    test "returns 404 for an unknown username", %{conn: conn} do
+    test "returns generic validation error for an unknown username (anti-enumeration)", %{
+           conn: conn
+         } do
       conn =
         post(conn, ~p"/auth/reset-password", %{
           username: "ghost",
@@ -134,7 +139,8 @@ defmodule TemplateAppWeb.AuthResetControllerTest do
           new_password: "newpassword123"
         })
 
-      assert %{"error" => "user_not_found"} = json_response(conn, 404)
+      assert %{"error" => "validation_error", "message" => "Invalid recovery code"} =
+               json_response(conn, 422)
     end
 
     test "returns 400 when params are missing", %{conn: conn} do

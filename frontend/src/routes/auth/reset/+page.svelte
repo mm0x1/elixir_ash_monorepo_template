@@ -1,8 +1,14 @@
 <script lang="ts">
-	import { requestPasswordReset, resetPassword } from '$lib/features/accounts';
+	import { requestPasswordReset, resetPassword, currentUser, ApiError } from '$lib/features/accounts';
 	import { notifications } from '$lib/shared/stores';
+	import FormAlert from '$lib/shared/components/FormAlert.svelte';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
+	import { onMount } from 'svelte';
+
+	onMount(() => {
+		if ($currentUser) goto(resolve('/'));
+	});
 
 	// Two phases: 'request' asks for a username and shows the generated codes,
 	// 'reset' consumes one code together with a new password.
@@ -16,7 +22,7 @@
 	let loading = $state(false);
 
 	const inputClass =
-		'mt-1 appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm disabled:opacity-50';
+		'mt-1 block w-full px-3 py-2 border border-gray-300 text-gray-900 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm disabled:opacity-50';
 
 	async function handleRequest(event: SubmitEvent) {
 		event.preventDefault();
@@ -28,7 +34,7 @@
 			phase = 'reset';
 			notifications.success('Reset codes generated. Use one below to set a new password.');
 		} catch (e) {
-			error = e instanceof Error ? e.message : 'Could not request a password reset';
+			error = e instanceof ApiError ? e.message : 'Something went wrong';
 		} finally {
 			loading = false;
 		}
@@ -44,7 +50,7 @@
 			notifications.success('Password reset successfully. Please sign in.');
 			goto(resolve('/auth/login'));
 		} catch (e) {
-			error = e instanceof Error ? e.message : 'Password reset failed';
+			error = e instanceof ApiError ? e.message : 'Something went wrong';
 		} finally {
 			loading = false;
 		}
@@ -64,9 +70,7 @@
 		</div>
 
 		{#if error}
-			<div class="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded" role="alert">
-				{error}
-			</div>
+			<FormAlert message={error} />
 		{/if}
 
 		{#if phase === 'request'}

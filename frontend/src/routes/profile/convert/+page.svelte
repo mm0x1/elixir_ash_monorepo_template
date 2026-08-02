@@ -1,7 +1,9 @@
 <script lang="ts">
 	import { currentUser } from '$lib/features/accounts';
-	import { convertToRegistered, ApiError, mapFieldErrors } from '$lib/features/accounts';
+	import { convertToRegistered, ApiError } from '$lib/features/accounts';
 	import { notifications } from '$lib/shared/stores';
+	import FormAlert from '$lib/shared/components/FormAlert.svelte';
+	import ButtonSpinner from '$lib/shared/components/ButtonSpinner.svelte';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { onMount } from 'svelte';
@@ -10,31 +12,16 @@
 	let password = $state('');
 	let passwordConfirmation = $state('');
 	let error = $state('');
-	let fieldErrors = $state<Record<string, string[]>>({});
 	let loading = $state(false);
 
-	const baseInputClass =
-		'mt-1 block w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm disabled:opacity-50';
+	const inputClass =
+		'mt-1 block w-full px-3 py-2 border border-gray-300 text-gray-900 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm disabled:opacity-50';
 
-	let usernameInputClass = $derived(
-		`${baseInputClass} ${fieldErrors.username?.length ? 'border-red-500' : 'border-gray-300'}`
-	);
-	let passwordInputClass = $derived(
-		`${baseInputClass} ${fieldErrors.password?.length ? 'border-red-500' : 'border-gray-300'}`
-	);
-	let confirmInputClass = $derived(
-		`${baseInputClass} ${fieldErrors.password_confirmation?.length ? 'border-red-500' : 'border-gray-300'}`
-	);
-
-	// Redirect non-guests to profile
 	onMount(() => {
-		if (!$currentUser) {
-			goto(resolve('/auth/login'));
-		} else if (!$currentUser.isGuest) {
+		if ($currentUser && !$currentUser.isGuest) {
 			notifications.info('Your account is already registered');
 			goto(resolve('/profile'));
-		} else {
-			// Pre-fill username with current display name
+		} else if ($currentUser) {
 			username = $currentUser.displayName;
 		}
 	});
@@ -44,7 +31,12 @@
 		if (!$currentUser) return;
 
 		error = '';
-		fieldErrors = {};
+
+		if (password !== passwordConfirmation) {
+			error = 'Passwords do not match';
+			return;
+		}
+
 		loading = true;
 
 		try {
@@ -58,12 +50,7 @@
 			notifications.success('Account converted successfully! You can now log in with your password.');
 			goto(resolve('/profile'));
 		} catch (e) {
-			if (e instanceof ApiError) {
-				fieldErrors = mapFieldErrors(e.errors);
-				error = fieldErrors._general?.join(', ') || '';
-			} else {
-				error = e instanceof Error ? e.message : 'Failed to convert account';
-			}
+			error = e instanceof ApiError ? e.message : 'Something went wrong';
 		} finally {
 			loading = false;
 		}
@@ -91,12 +78,7 @@
 
 				<form onsubmit={handleSubmit} class="space-y-6">
 					{#if error}
-						<div
-							class="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded"
-							role="alert"
-						>
-							{error}
-						</div>
+						<FormAlert message={error} />
 					{/if}
 
 					<div>
@@ -109,12 +91,9 @@
 							required
 							bind:value={username}
 							disabled={loading}
-							class={usernameInputClass}
+							class={inputClass}
 							placeholder="Choose a username"
 						/>
-						{#if fieldErrors.username?.length}
-							<p class="mt-1 text-sm text-red-600">{fieldErrors.username.join(', ')}</p>
-						{/if}
 					</div>
 
 					<div>
@@ -127,12 +106,9 @@
 							required
 							bind:value={password}
 							disabled={loading}
-							class={passwordInputClass}
+							class={inputClass}
 							placeholder="Create a password"
 						/>
-						{#if fieldErrors.password?.length}
-							<p class="mt-1 text-sm text-red-600">{fieldErrors.password.join(', ')}</p>
-						{/if}
 					</div>
 
 					<div>
@@ -147,12 +123,9 @@
 							required
 							bind:value={passwordConfirmation}
 							disabled={loading}
-							class={confirmInputClass}
+							class={inputClass}
 							placeholder="Confirm your password"
 						/>
-						{#if fieldErrors.password_confirmation?.length}
-							<p class="mt-1 text-sm text-red-600">{fieldErrors.password_confirmation.join(', ')}</p>
-						{/if}
 					</div>
 
 					<div class="bg-blue-50 border border-blue-200 text-blue-800 px-4 py-3 rounded text-sm">
@@ -171,26 +144,8 @@
 						class="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
 					>
 						{#if loading}
-							<svg
-								class="animate-spin -ml-1 mr-3 h-5 w-5 text-white"
-								fill="none"
-								viewBox="0 0 24 24"
-							>
-								<circle
-									class="opacity-25"
-									cx="12"
-									cy="12"
-									r="10"
-									stroke="currentColor"
-									stroke-width="4"
-								></circle>
-								<path
-									class="opacity-75"
-									fill="currentColor"
-									d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-								></path>
-							</svg>
-							Converting...
+							<ButtonSpinner />
+							<span class="ml-3">Converting...</span>
 						{:else}
 							Convert Account
 						{/if}
@@ -198,9 +153,5 @@
 				</form>
 			</div>
 		</div>
-	</div>
-{:else}
-	<div class="min-h-screen flex items-center justify-center" role="status" aria-label="Loading">
-		<div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
 	</div>
 {/if}

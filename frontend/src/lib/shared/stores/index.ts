@@ -1,1 +1,1 @@
-export { notifications, type Notification, type NotificationType } from './notifications';
+export { notifications, type Notification } from './notifications';

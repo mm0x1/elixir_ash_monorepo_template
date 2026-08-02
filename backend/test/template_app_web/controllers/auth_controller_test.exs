@@ -9,6 +9,8 @@ defmodule TemplateAppWeb.AuthControllerTest do
 
   alias TemplateApp.Accounts.Resources.RefreshToken
 
+  require Ash.Query
+
   @refresh_cookie "_template_app_refresh"
 
   # Returns a conn with Bearer token set
@@ -142,14 +144,36 @@ defmodule TemplateAppWeb.AuthControllerTest do
   # ---------------------------------------------------------------------------
 
   describe "POST /auth/refresh" do
-    test "returns new access_token with a valid refresh cookie", %{conn: _conn} do
+    test "rotates the refresh token: new access token, new cookie, old token deleted", %{
+           conn: _conn
+         } do
       user = create_user()
-      token = create_refresh_token(user)
+      old_token = create_refresh_token(user)
 
-      conn = post(with_refresh_cookie(token.id), ~p"/auth/refresh")
+      conn = post(with_refresh_cookie(old_token.id), ~p"/auth/refresh")
 
       assert %{"access_token" => access_token} = json_response(conn, 200)
       assert is_binary(access_token)
+
+      {:ok, new_cookie_id} = get_resp_cookie(conn)
+      assert new_cookie_id != old_token.id
+
+      assert {:ok, nil} =
+               RefreshToken
+               |> Ash.Query.filter(id == ^old_token.id)
+               |> Ash.read_one()
+    end
+
+    test "rotated refresh token can be used for a subsequent refresh", %{conn: _conn} do
+      user = create_user()
+      token = create_refresh_token(user)
+
+      first_conn = post(with_refresh_cookie(token.id), ~p"/auth/refresh")
+      assert %{"access_token" => _} = json_response(first_conn, 200)
+      {:ok, rotated_id} = get_resp_cookie(first_conn)
+
+      second_conn = post(with_refresh_cookie(rotated_id), ~p"/auth/refresh")
+      assert %{"access_token" => _} = json_response(second_conn, 200)
     end
 
     test "returns 401 when no refresh cookie is present", %{conn: conn} do

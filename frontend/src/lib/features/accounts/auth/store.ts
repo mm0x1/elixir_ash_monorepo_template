@@ -4,19 +4,18 @@
  */
 
 import { writable, get } from 'svelte/store';
-import type { User, AuthResponse, RefreshResponse } from '$lib/features/accounts/types';
+import type {
+	User,
+	AuthResponse,
+	RefreshResponse,
+	UserResponse
+} from '$lib/features/accounts/types';
 import { toUser } from '$lib/features/accounts/types';
-import { API_URL } from '$lib/shared/api/client';
+import { API_URL, ApiError, throwApiError, api } from '$lib/shared/api/client';
 import { accessToken } from '$lib/shared/auth/token';
-import { configureAuthFetch, authenticatedFetch } from './refresh';
+import { authenticatedFetch } from './refresh';
 
-// Re-export so the rest of the app can import from '$lib/auth'
 export { accessToken };
-
-// Register this module's refresh/clearAuth with the fetch layer.
-// Function declarations are hoisted so refreshAccessToken and clearAuth
-// are available here even though they appear later in the file.
-configureAuthFetch(refreshAccessToken, clearAuth);
 
 /**
  * Current user store
@@ -29,31 +28,15 @@ export const currentUser = writable<User | null>(null);
 export const authLoading = writable<boolean>(true);
 
 /**
- * Whether auth has been initialized
- */
-export const authInitialized = writable<boolean>(false);
-
-/**
  * Login with username and password
  */
 export async function login(username: string, password: string): Promise<User> {
-	const response = await fetch(`${API_URL}/auth/login`, {
-		method: 'POST',
-		headers: { 'Content-Type': 'application/json' },
-		body: JSON.stringify({ username, password }),
-		credentials: 'include' // Required for HttpOnly cookie
+	const data = await api.post<AuthResponse>('/auth/login', { username, password }, {
+		errorMessage: 'Login failed'
 	});
-
-	if (!response.ok) {
-		const error = await response.json();
-		throw new Error(error.message || 'Login failed');
-	}
-
-	const data: AuthResponse = await response.json();
 	accessToken.set(data.access_token);
 	const user = toUser(data.user);
 	currentUser.set(user);
-
 	return user;
 }
 
@@ -65,27 +48,14 @@ export async function register(
 	password: string,
 	passwordConfirmation: string
 ): Promise<User> {
-	const response = await fetch(`${API_URL}/auth/register`, {
-		method: 'POST',
-		headers: { 'Content-Type': 'application/json' },
-		body: JSON.stringify({
-			username,
-			password,
-			password_confirmation: passwordConfirmation
-		}),
-		credentials: 'include'
-	});
-
-	if (!response.ok) {
-		const error = await response.json();
-		throw new Error(error.message || 'Registration failed');
-	}
-
-	const data: AuthResponse = await response.json();
+	const data = await api.post<AuthResponse>('/auth/register', {
+		username,
+		password,
+		password_confirmation: passwordConfirmation
+	}, { errorMessage: 'Registration failed' });
 	accessToken.set(data.access_token);
 	const user = toUser(data.user);
 	currentUser.set(user);
-
 	return user;
 }
 
@@ -96,19 +66,9 @@ export async function register(
  * template sends no email). Does not change local auth state.
  */
 export async function requestPasswordReset(username: string): Promise<string[]> {
-	const response = await fetch(`${API_URL}/auth/request-reset`, {
-		method: 'POST',
-		headers: { 'Content-Type': 'application/json' },
-		body: JSON.stringify({ username }),
-		credentials: 'include'
+	const data = await api.post<{ recovery_codes: string[] }>('/auth/request-reset', { username }, {
+		errorMessage: 'Could not request a password reset'
 	});
-
-	if (!response.ok) {
-		const error = await response.json();
-		throw new Error(error.message || 'Could not request a password reset');
-	}
-
-	const data: { recovery_codes: string[] } = await response.json();
 	return data.recovery_codes;
 }
 
@@ -121,21 +81,11 @@ export async function resetPassword(
 	recoveryCode: string,
 	newPassword: string
 ): Promise<void> {
-	const response = await fetch(`${API_URL}/auth/reset-password`, {
-		method: 'POST',
-		headers: { 'Content-Type': 'application/json' },
-		body: JSON.stringify({
-			username,
-			recovery_code: recoveryCode,
-			new_password: newPassword
-		}),
-		credentials: 'include'
-	});
-
-	if (!response.ok) {
-		const error = await response.json();
-		throw new Error(error.message || 'Password reset failed');
-	}
+	await api.post('/auth/reset-password', {
+		username,
+		recovery_code: recoveryCode,
+		new_password: newPassword
+	}, { errorMessage: 'Password reset failed' });
 }
 
 /**
@@ -148,9 +98,8 @@ export async function refreshAccessToken(): Promise<void> {
 	});
 
 	if (!response.ok) {
-		// Refresh token invalid/expired - clear auth state
 		clearAuth();
-		throw new Error('Session expired');
+		await throwApiError(response, 'Session expired');
 	}
 
 	const data: RefreshResponse = await response.json();
@@ -206,21 +155,19 @@ export async function fetchCurrentUser(): Promise<User | null> {
 	if (!token) return null;
 
 	try {
-		const response = await authenticatedFetch(`${API_URL}/auth/me`, {});
-
-		if (!response.ok) {
-			if (response.status === 401) return null;
-			console.error(`fetchCurrentUser: unexpected ${response.status}`);
-			return null;
-		}
-
-		const data = await response.json();
+		const data = await api.get<UserResponse>('/auth/me', {
+			fetchFn: authenticatedFetch
+		});
 		const user = toUser(data.user);
 		currentUser.set(user);
 		return user;
-	} catch (error) {
-		if (error instanceof Error && error.message === 'Session expired') return null;
-		console.error('fetchCurrentUser:', error);
+	} catch (e) {
+		if (e instanceof ApiError && e.isAuthError()) return null;
+		if (e instanceof TypeError) {
+			console.error('fetchCurrentUser: network error', e);
+			return null;
+		}
+		console.error('fetchCurrentUser:', e);
 		return null;
 	}
 }
@@ -240,7 +187,6 @@ export async function initAuth(): Promise<void> {
 		clearAuth();
 	} finally {
 		authLoading.set(false);
-		authInitialized.set(true);
 	}
 }
 
