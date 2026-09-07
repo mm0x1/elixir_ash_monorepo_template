@@ -1,131 +1,74 @@
-#!/bin/bash
-# Development helper script
-# Usage: ./dev.sh [command]
+#!/usr/bin/env bash
+# Compatibility wrapper for the root mise task surface.
+# Usage: ./dev.sh [setup|start|serve|stop|reset|logs|db-logs|status|check|test]
 
-set -e
+set -euo pipefail
 
-DB_COMPOSE="docker-compose.db.yml"
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+cd "$ROOT_DIR"
+
+if ! command -v mise >/dev/null 2>&1; then
+  printf '%s\n' "mise is required. Install it from https://mise.jdx.dev, then run: mise install" >&2
+  exit 1
+fi
 
 case "${1:-help}" in
+  setup)
+    exec mise run setup
+    ;;
   start)
-    echo "🚀 Starting development environment..."
-    echo ""
-    echo "1️⃣  Starting database..."
-    docker compose -f "$DB_COMPOSE" up -d
-
-    echo ""
-    echo "✅ Database started!"
-    echo ""
-    echo "Next steps:"
-    echo "  Terminal 1: cd backend && mix phx.server"
-    echo "  Terminal 2: cd frontend && npm run dev"
-    echo ""
-    echo "Or run: ./dev.sh serve"
+    exec mise run db:up
     ;;
-
-  serve)
-    echo "🚀 Starting backend and frontend..."
-    echo ""
-
-    # Ensure database is running
-    docker compose -f "$DB_COMPOSE" up -d
-
-    # Start backend in background
-    echo "Starting backend..."
-    cd backend
-    mix phx.server &
-    BACKEND_PID=$!
-    cd ..
-
-    # Wait a moment for backend to start
-    sleep 2
-
-    # Start frontend in background
-    echo "Starting frontend..."
-    cd frontend
-    npm run dev &
-    FRONTEND_PID=$!
-    cd ..
-
-    echo ""
-    echo "✅ Services started!"
-    echo "   Backend:  http://localhost:4000"
-    echo "   Frontend: http://localhost:5173"
-    echo ""
-    echo "Press Ctrl+C to stop all services"
-
-    # Trap Ctrl+C to kill both processes
-    trap "kill $BACKEND_PID $FRONTEND_PID; docker compose -f $DB_COMPOSE stop; exit" INT
-
-    # Wait for both processes
-    wait
+  serve|dev)
+    exec mise run dev
     ;;
-
   stop)
-    echo "🛑 Stopping development environment..."
-    docker compose -f "$DB_COMPOSE" down
-    echo "✅ Database stopped!"
+    exec mise run stop
     ;;
-
   reset)
-    echo "♻️  Resetting database..."
-    cd backend
-    mix ecto.reset
-    cd ..
-    echo "✅ Database reset complete!"
+    exec mise run reset
     ;;
-
   logs)
-    docker compose -f "$DB_COMPOSE" logs -f
+    exec mise run dev:logs
     ;;
-
+  db-logs)
+    exec mise run db:logs
+    ;;
   status)
-    echo "📊 Service status:"
-    echo ""
-    docker compose -f "$DB_COMPOSE" ps
-    echo ""
-    if lsof -ti:4000 > /dev/null 2>&1; then
-      echo "✅ Backend running on port 4000"
-    else
-      echo "❌ Backend not running"
-    fi
-
-    if lsof -ti:5173 > /dev/null 2>&1; then
-      echo "✅ Frontend running on port 5173"
-    else
-      echo "❌ Frontend not running"
-    fi
+    exec mise run status
     ;;
-
-  help|*)
-    cat << EOF
-Development Helper Script
+  check)
+    exec mise run check
+    ;;
+  test)
+    exec mise run test
+    ;;
+  help)
+    cat <<'EOF'
+Development tasks
 
 Usage: ./dev.sh [command]
 
 Commands:
-  start     Start database only (you start backend/frontend manually)
-  serve     Start database + backend + frontend (all in background)
-  stop      Stop database
-  reset     Reset database (drop, create, migrate, seed)
-  logs      Show database logs
-  status    Check status of all services
+  setup     Install dependencies, initialize the database, and install hooks
+  start     Start PostgreSQL and wait until it is healthy
+  serve     Start PostgreSQL, Phoenix, and Vite through Pitchfork
+  stop      Stop application services and PostgreSQL
+  reset     Drop, recreate, migrate, and seed the local database
+  logs      Follow Phoenix and Vite logs
+  db-logs   Follow PostgreSQL logs
+  status    Show database and application service status
+  check     Run backend and frontend quality checks
+  test      Run backend, frontend, and browser tests
   help      Show this help message
 
-Examples:
-  # Option 1: Start DB, run services manually
-  ./dev.sh start
-  cd backend && mix phx.server       # Terminal 1
-  cd frontend && npm run dev         # Terminal 2
-
-  # Option 2: Start everything at once
-  ./dev.sh serve
-
-  # Reset database
-  ./dev.sh reset
-
-  # Stop database
-  ./dev.sh stop
+The canonical equivalent commands are `mise run <task>`. Use
+`mise tasks` to see the complete task list.
 EOF
+    ;;
+  *)
+    printf 'Unknown command: %s\n\n' "$1" >&2
+    mise tasks
+    exit 2
     ;;
 esac

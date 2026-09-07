@@ -41,7 +41,9 @@
 					</div>
 				</div>
 			{:else}
-				<p class="text-xl text-gray-600 mb-8">Please sign in or create an account to get started.</p>
+				<p class="text-xl text-gray-600 mb-8">
+					Please sign in or create an account to get started.
+				</p>
 
 				<div class="flex flex-wrap justify-center gap-4">
 					<a

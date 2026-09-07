@@ -8,13 +8,18 @@ Phoenix 1.8 + Ash 3.x REST/JSON API (no RPC layer). PostgreSQL via AshPostgres.
 ## Commands (run from `backend/`)
 
 ```bash
-mix setup            # deps + create/migrate/seed DB (DB must be up: docker compose -f ../docker-compose.db.yml up -d)
-mix phx.server       # API on localhost:4000  (iex -S mix phx.server for a shell)
+docker compose -f ../docker-compose.db.yml up -d --wait  # start PostgreSQL first
+mix setup            # backend deps + create/migrate/seed DB
+mix phx.server       # API on 127.0.0.1:4000  (iex -S mix phx.server for a shell)
 mix ash.codegen      # generate migrations after changing Ash resources
 mix test             # tests (DB must be up)
-mix quality          # format check + Credo --strict + compile --warnings-as-errors + frontend lint
-mix quality.fix      # auto-fix format + frontend lint
+mix quality          # backend format check + Credo --strict + compile --warnings-as-errors
+mix quality.fix      # auto-fix backend format
 ```
+
+For the complete monorepo workflow, run `mise run setup`, `mise run dev`,
+`mise run check`, or `mise run test` from the repository root. Cross-project
+quality checks live in mise; Mix quality is intentionally backend-only.
 
 ## Agent tooling
 

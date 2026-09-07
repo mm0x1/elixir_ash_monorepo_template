@@ -1,5 +1,172 @@
+#:schema https://mise.jdx.dev/schema/mise.json
+
 [tools]
 elixir = "1.20.2"
 erlang = "29.0.4"
 nodejs = "22.23.2"
 lefthook = "1.13.6"
+pitchfork = "2.24.2"
+
+[env]
+# Load the optional root dotenv file for every mise task. The backend and Compose
+# defaults keep a clean clone usable even when .env has not been created yet.
+_.file = ".env"
+
+[tasks."db:up"]
+description = "Start PostgreSQL and wait until it is healthy"
+run = "docker compose -f docker-compose.db.yml up -d --wait --wait-timeout 60"
+
+[tasks."db:down"]
+description = "Stop and remove the local PostgreSQL container"
+run = "docker compose -f docker-compose.db.yml down"
+
+[tasks."db:logs"]
+description = "Follow PostgreSQL logs"
+run = "docker compose -f docker-compose.db.yml logs -f"
+
+[tasks."backend:setup"]
+description = "Install backend dependencies, migrate, and seed the database"
+dir = "backend"
+depends = ["db:up"]
+run = "mix setup"
+
+[tasks."frontend:install"]
+description = "Install frontend dependencies from the lockfile"
+dir = "frontend"
+run = "npm ci"
+
+[tasks."hooks:install"]
+description = "Install the repository's Lefthook hooks"
+run = "lefthook install"
+
+[tasks.setup]
+description = "Prepare the database, backend, frontend, and git hooks"
+depends = ["backend:setup", "frontend:install", "hooks:install"]
+
+[tasks.dev]
+description = "Start PostgreSQL, Phoenix, and Vite"
+depends = ["db:up"]
+run = "pitchfork start backend frontend"
+
+[tasks."dev:logs"]
+description = "Follow Phoenix and Vite logs"
+run = "pitchfork logs backend frontend --tail"
+
+[tasks.stop]
+description = "Stop Phoenix, Vite, and PostgreSQL"
+run = "bash scripts/stop.sh"
+
+[tasks.status]
+description = "Show local database and application service status"
+run = [
+  "docker compose -f docker-compose.db.yml ps",
+  "pitchfork list --project"
+]
+
+[tasks.reset]
+description = "Drop, recreate, migrate, and seed the local database"
+confirm = "Reset the local database? This deletes all local data."
+run = [
+  "docker compose -f docker-compose.db.yml up -d --wait --wait-timeout 60",
+  "cd backend && mix ecto.reset"
+]
+
+[tasks."backend:quality"]
+description = "Format, lint, and compile the backend"
+dir = "backend"
+run = "mix quality"
+
+[tasks."backend:compile"]
+description = "Compile the backend with warnings as errors"
+dir = "backend"
+run = "mix compile --warnings-as-errors"
+
+[tasks."backend:test"]
+description = "Run the backend test suite"
+dir = "backend"
+depends = ["db:up"]
+run = "mix test"
+
+[tasks."backend:test:stale"]
+description = "Run only backend tests affected by changed modules"
+dir = "backend"
+depends = ["db:up"]
+run = "mix test --stale"
+
+[tasks."backend:test:failed"]
+description = "Rerun the backend tests that failed most recently"
+dir = "backend"
+depends = ["db:up"]
+run = "mix test --failed"
+
+[tasks."codegen:check"]
+description = "Ensure Ash resources and migrations are in sync"
+dir = "backend"
+run = "mix codegen.check"
+
+[tasks."frontend:check"]
+description = "Type-check the frontend"
+dir = "frontend"
+run = "npm run check"
+
+[tasks."frontend:lint"]
+description = "Lint the frontend"
+dir = "frontend"
+run = "npm run lint"
+
+[tasks."frontend:format:check"]
+description = "Check frontend formatting"
+dir = "frontend"
+run = "npm run format:check"
+
+[tasks."frontend:build"]
+description = "Build the frontend SPA"
+dir = "frontend"
+run = "npm run build"
+
+[tasks."frontend:test:unit"]
+description = "Run frontend unit and integration tests"
+dir = "frontend"
+run = "npm run test:unit"
+
+[tasks."frontend:test:unit:watch"]
+description = "Watch frontend unit and integration tests"
+dir = "frontend"
+run = "npm run test:unit:watch"
+
+[tasks."frontend:test:unit:related"]
+description = "Run frontend tests related to supplied source files"
+dir = "frontend"
+run = "npm run test:unit:related --"
+
+[tasks."frontend:test:e2e"]
+description = "Run Playwright end-to-end tests"
+dir = "frontend"
+run = "npm run test:e2e"
+
+[tasks."frontend:test:e2e:ui"]
+description = "Open Playwright UI mode"
+dir = "frontend"
+run = "npm run test:e2e:ui"
+
+[tasks.check]
+description = "Run backend and frontend quality checks"
+depends = [
+  "backend:quality",
+  "codegen:check",
+  "frontend:check",
+  "frontend:lint",
+  "frontend:format:check"
+]
+
+[tasks."test:unit"]
+description = "Run backend and frontend unit tests"
+depends = ["backend:test", "frontend:test:unit"]
+
+[tasks.test]
+description = "Run all backend, frontend, and browser tests"
+depends = ["test:unit", "frontend:test:e2e"]
+
+[tasks.build]
+description = "Compile the backend and build the frontend"
+depends = ["backend:compile", "frontend:build"]

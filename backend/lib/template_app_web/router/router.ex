@@ -91,6 +91,24 @@ defmodule TemplateAppWeb.Router do
     import Phoenix.LiveDashboard.Router
     import AshAdmin.Router
 
+    # Ash Admin uses a browser session, while the SPA uses bearer tokens. Keep a
+    # small development-only sign-in surface for the seeded admin accounts.
+    scope "/", TemplateAppWeb do
+      pipe_through [:browser]
+
+      sign_in_route path: "/dev/admin/sign-in",
+                    auth_routes_prefix: "/dev/admin/auth",
+                    resources: [TemplateApp.Accounts.Resources.User],
+                    overrides: [
+                      TemplateAppWeb.AuthOverrides,
+                      AshAuthentication.Phoenix.Overrides.Default
+                    ]
+
+      auth_routes AuthController, TemplateApp.Accounts.Resources.User, path: "/dev/admin/auth"
+
+      sign_out_route AuthController, "/dev/admin/sign-out", as: :admin_auth
+    end
+
     scope "/dev" do
       pipe_through [:browser]
 
@@ -102,5 +120,9 @@ defmodule TemplateAppWeb.Router do
 
       ash_admin "/"
     end
+  end
+
+  if Application.compile_env(:template_app, :serve_frontend, false) do
+    get "/*path", TemplateAppWeb.FrontendController, :index
   end
 end

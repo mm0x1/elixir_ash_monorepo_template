@@ -27,8 +27,15 @@ pre-commit:
     frontend-lint:
       glob: "frontend/**/*.{svelte,ts,js}"
       root: "frontend/"
-      run: npm run lint:fix
+      run: npx eslint --fix {staged_files}
       stage_fixed: true
+
+    # Prettier check for the files selected by the hook. The full check remains
+    # available through `mise run frontend:format:check`.
+    frontend-format:
+      glob: "frontend/**/*.{svelte,ts,js}"
+      root: "frontend/"
+      run: npx prettier --check {staged_files}
 
     # Svelte type checking
     frontend-check:

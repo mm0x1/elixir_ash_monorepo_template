@@ -47,7 +47,9 @@
 				passwordConfirmation
 			);
 			currentUser.set(updatedUser);
-			notifications.success('Account converted successfully! You can now log in with your password.');
+			notifications.success(
+				'Account converted successfully! You can now log in with your password.'
+			);
 			goto(resolve('/profile'));
 		} catch (e) {
 			error = e instanceof ApiError ? e.message : 'Something went wrong';
@@ -61,10 +63,7 @@
 	<div class="min-h-screen bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
 		<div class="max-w-md mx-auto">
 			<div class="mb-6">
-				<a
-					href={resolve('/profile')}
-					class="text-blue-600 hover:text-blue-500 text-sm font-medium"
-				>
+				<a href={resolve('/profile')} class="text-blue-600 hover:text-blue-500 text-sm font-medium">
 					Back to Profile
 				</a>
 			</div>

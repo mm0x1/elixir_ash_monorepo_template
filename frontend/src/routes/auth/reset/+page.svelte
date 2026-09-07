@@ -1,5 +1,10 @@
 <script lang="ts">
-	import { requestPasswordReset, resetPassword, currentUser, ApiError } from '$lib/features/accounts';
+	import {
+		requestPasswordReset,
+		resetPassword,
+		currentUser,
+		ApiError
+	} from '$lib/features/accounts';
 	import { notifications } from '$lib/shared/stores';
 	import FormAlert from '$lib/shared/components/FormAlert.svelte';
 	import { goto } from '$app/navigation';

@@ -54,12 +54,7 @@ export async function throwApiError(response: Response, fallback: string): Promi
 	} catch {
 		// Non-JSON body
 	}
-	throw new ApiError(
-		body.message ?? fallback,
-		response.status,
-		body.messages ?? [],
-		body.error
-	);
+	throw new ApiError(body.message ?? fallback, response.status, body.messages ?? [], body.error);
 }
 
 type FetchLike = (url: string, init?: RequestInit) => Promise<Response>;

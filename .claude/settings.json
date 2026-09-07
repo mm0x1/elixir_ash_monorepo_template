@@ -33,7 +33,7 @@
   },
   "formatting": {
     "elixir": "mix format",
-    "typescript": "cd frontend && npm run lint:fix"
+    "typescript": "cd frontend && npm run format"
   },
   "codegen": {
     "ash_migrations": "mix ash.codegen"
@@ -46,7 +46,8 @@
   "project": {
     "name": "TemplateApp",
     "type": "phoenix-ash-sveltekit",
-    "elixir_version": "1.15+",
+    "elixir_version": "1.20.2",
+    "node_version": "22.23.2",
     "phoenix_version": "1.8",
     "ash_version": "3.x",
     "api_style": "rest-json",

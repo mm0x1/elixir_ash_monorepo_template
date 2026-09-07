@@ -13,7 +13,9 @@ defmodule TemplateApp.MixProject do
       usage_rules: usage_rules(),
       compilers: Mix.compilers(),
       listeners: [Phoenix.CodeReloader],
-      consolidate_protocols: Mix.env() != :dev
+      consolidate_protocols: Mix.env() != :dev,
+      # Endpoint force_ssl is intentionally selected from FORCE_SSL at runtime.
+      releases: [template_app: [validate_compile_env: false]]
     ]
   end
 
@@ -70,7 +72,7 @@ defmodule TemplateApp.MixProject do
       {:dns_cluster, "~> 0.2.0"},
       {:bandit, "~> 1.12"},
       {:argon2_elixir, "~> 4.1"},
-      {:tidewave, "~> 0.8", only: :dev},
+      {:tidewave, "~> 0.9", only: :dev},
       {:dialyxir, "~> 1.4", only: [:dev], runtime: false},
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
       {:sobelow, "~> 0.13", only: [:dev, :test], runtime: false},
@@ -92,10 +94,7 @@ defmodule TemplateApp.MixProject do
       setup: [
         "deps.get",
         "ash.setup",
-        "assets.setup",
-        "assets.build",
-        "run priv/repo/seeds.exs",
-        "cmd lefthook install"
+        "run priv/repo/seeds.exs"
       ],
       "ecto.setup": ["ecto.create", "ecto.migrate", "run priv/repo/seeds.exs"],
       "ecto.reset": ["ecto.drop", "ecto.setup"],
@@ -108,15 +107,13 @@ defmodule TemplateApp.MixProject do
       quality: [
         "format --check-formatted",
         "credo --strict",
-        "compile --warnings-as-errors",
-        "cmd --cd ../frontend npm run lint"
+        "compile --warnings-as-errors"
       ],
       "quality.fix": [
-        "format",
-        "cmd --cd ../frontend npm run lint:fix"
+        "format"
       ],
       "assets.setup": [
-        "cmd --cd ../frontend npm install"
+        "cmd --cd ../frontend npm ci"
       ],
       "assets.build": [
         "cmd --cd ../frontend npm run build"

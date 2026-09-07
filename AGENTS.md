@@ -29,25 +29,36 @@ This template is set up for AI-assisted development:
 ## Commands
 
 ```bash
-docker compose -f docker-compose.db.yml up -d   # Start DB (required for backend)
+# Root workflow (recommended)
+mise install
+mise run setup             # Install deps, create/migrate/seed DB, install hooks
+mise run dev               # Start PostgreSQL, Phoenix, and Vite
+mise run dev:logs          # Follow Phoenix and Vite logs
+mise run stop              # Stop application services and PostgreSQL
+mise run reset             # Reset and reseed the local database
+mise tasks                 # List all repository tasks
 
-# Backend (in backend/)
-mix setup            # Install deps, create + migrate + seed DB
-mix phx.server       # Run API on localhost:4000  (iex -S mix phx.server for a shell)
+# Backend (run from backend/ when working on backend-only tasks)
+mix setup            # Install backend deps, create + migrate + seed DB
+mix phx.server       # Run API on 127.0.0.1:4000
 mix ash.codegen      # Generate migrations after changing Ash resources
 mix test             # Tests (DB must be up)
-mix quality          # Format + Credo --strict + compile check (quality.fix to auto-fix)
+mix quality          # Backend format + Credo --strict + compile checks
+mix quality.fix      # Auto-format the backend
 
-# Frontend (in frontend/)
-npm install
-npm run dev          # Vite dev server on localhost:5173
+# Frontend (run from frontend/ for frontend-only tasks)
+npm ci               # Deterministic install from package-lock.json
+npm run dev          # Vite dev server on 127.0.0.1:5173
 npm run check        # svelte-check (types, via tsgo/TS7)
 npm run lint         # ESLint
 npm run test:unit    # Vitest unit + integration (jsdom, MSW)
 npm run test:e2e     # Playwright E2E (network mocked, never a live backend)
 ```
 
-Tool versions are pinned in `mise.toml` (`mise install` to provision).
+Tool versions and cross-repository tasks are defined in `mise.toml`. The optional
+root `.env` is loaded by mise tasks and by Vite; `direnv` remains an optional
+interactive-shell convenience. PostgreSQL is the only container in the default
+workflow. Pitchfork supervises the native Phoenix and Vite processes.
 
 ## Structure
 
@@ -81,6 +92,11 @@ REST endpoints (see `router.ex`): public `POST /auth/{login,register,refresh,req
 | Refresh | 7 days | HttpOnly cookie | DB-backed, only `/auth/refresh` |
 
 The frontend's API calls go through `api.get/post/patch/put/delete` from `shared/api/client` (handles JSON, credentials, errors). Authenticated endpoints pass `{ fetchFn: authenticatedFetch }` — `authenticatedFetch` (from `auth/refresh.ts`) injects auth headers and retries once on 401. Backend DTOs (snake_case) are transformed into UI types via a shared `toUser()` in `types/transforms.ts`.
+
+For local development, Vite loads the root environment and proxies `/auth`,
+`/account`, and `/health` to the backend. The proxy uses the configured backend
+`PORT`, defaulting to 4000. Keep the local frontend port at 5173 so startup
+failures are explicit rather than silently moving to another origin.
 
 ## Critical rules
 

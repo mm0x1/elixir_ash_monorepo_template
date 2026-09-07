@@ -31,9 +31,13 @@ export const authLoading = writable<boolean>(true);
  * Login with username and password
  */
 export async function login(username: string, password: string): Promise<User> {
-	const data = await api.post<AuthResponse>('/auth/login', { username, password }, {
-		errorMessage: 'Login failed'
-	});
+	const data = await api.post<AuthResponse>(
+		'/auth/login',
+		{ username, password },
+		{
+			errorMessage: 'Login failed'
+		}
+	);
 	accessToken.set(data.access_token);
 	const user = toUser(data.user);
 	currentUser.set(user);
@@ -48,11 +52,15 @@ export async function register(
 	password: string,
 	passwordConfirmation: string
 ): Promise<User> {
-	const data = await api.post<AuthResponse>('/auth/register', {
-		username,
-		password,
-		password_confirmation: passwordConfirmation
-	}, { errorMessage: 'Registration failed' });
+	const data = await api.post<AuthResponse>(
+		'/auth/register',
+		{
+			username,
+			password,
+			password_confirmation: passwordConfirmation
+		},
+		{ errorMessage: 'Registration failed' }
+	);
 	accessToken.set(data.access_token);
 	const user = toUser(data.user);
 	currentUser.set(user);
@@ -66,9 +74,13 @@ export async function register(
  * template sends no email). Does not change local auth state.
  */
 export async function requestPasswordReset(username: string): Promise<string[]> {
-	const data = await api.post<{ recovery_codes: string[] }>('/auth/request-reset', { username }, {
-		errorMessage: 'Could not request a password reset'
-	});
+	const data = await api.post<{ recovery_codes: string[] }>(
+		'/auth/request-reset',
+		{ username },
+		{
+			errorMessage: 'Could not request a password reset'
+		}
+	);
 	return data.recovery_codes;
 }
 
@@ -81,11 +93,15 @@ export async function resetPassword(
 	recoveryCode: string,
 	newPassword: string
 ): Promise<void> {
-	await api.post('/auth/reset-password', {
-		username,
-		recovery_code: recoveryCode,
-		new_password: newPassword
-	}, { errorMessage: 'Password reset failed' });
+	await api.post(
+		'/auth/reset-password',
+		{
+			username,
+			recovery_code: recoveryCode,
+			new_password: newPassword
+		},
+		{ errorMessage: 'Password reset failed' }
+	);
 }
 
 /**
@@ -197,4 +213,3 @@ export function clearAuth(): void {
 	accessToken.set(null);
 	currentUser.set(null);
 }
-

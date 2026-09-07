@@ -26,23 +26,13 @@ defmodule Seeder do
         {:ok, user} =
           Accounts.create_user(username, password, password, authorize?: false)
 
-        # Update role after creation
-        {:ok, user} =
-          user
-          |> Ash.Changeset.for_update(:update, %{})
-          |> Ash.Changeset.force_change_attribute(:role, role)
-          |> Ash.update(authorize?: false)
+        update_role(user, role)
 
         IO.puts("   - Created user: #{username} (role: #{role})")
         user
 
       {:ok, user} ->
-        # Update role if user exists
-        {:ok, user} =
-          user
-          |> Ash.Changeset.for_update(:update, %{})
-          |> Ash.Changeset.force_change_attribute(:role, role)
-          |> Ash.update(authorize?: false)
+        update_role(user, role)
 
         IO.puts("   - Updated user: #{username} (role: #{role})")
         user
@@ -50,6 +40,17 @@ defmodule Seeder do
       {:error, _} ->
         nil
     end
+  end
+
+  defp update_role(user, role) do
+    # Keep seed-only role assignment out of the public Ash action surface.
+    TemplateApp.Repo.query!(
+      "UPDATE users SET role = $1, updated_at = NOW() WHERE id = $2",
+      [Atom.to_string(role), Ecto.UUID.dump!(user.id)]
+    )
+
+    {:ok, updated_user} = Accounts.get_user_by_id(user.id)
+    updated_user
   end
 end
 

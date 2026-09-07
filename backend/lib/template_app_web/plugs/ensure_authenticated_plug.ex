@@ -24,7 +24,7 @@ defmodule TemplateAppWeb.Plugs.EnsureAuthenticatedPlug do
       else
         conn
         |> put_flash(:error, "You must be signed in to access this page.")
-        |> redirect(to: "/auth/sign-in")
+        |> redirect(to: "/dev/admin/sign-in")
         |> halt()
       end
     end

@@ -23,8 +23,8 @@ test('viewing the profile page shows account info', async ({ page }) => {
 	await loginViaRoutes(page);
 	await page.goto('/profile');
 
-	await expect(page.getByText('alice')).toBeVisible();
-	await expect(page.getByText('User')).toBeVisible();
+	await expect(page.getByRole('main').getByText('alice')).toBeVisible();
+	await expect(page.getByRole('main').getByText('User', { exact: true })).toBeVisible();
 });
 
 test('logging out returns to the home page', async ({ page }) => {

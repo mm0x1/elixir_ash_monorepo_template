@@ -12,8 +12,10 @@ test.beforeEach(async ({ page }) => {
 });
 
 test('registering a new account lands on the home page', async ({ page }) => {
-	await page.route('**/auth/register', (route) =>
-		route.fulfill({
+	await page.route('**/auth/register', (route) => {
+		if (route.request().resourceType() === 'document') return route.continue();
+
+		return route.fulfill({
 			status: 201,
 			contentType: 'application/json',
 			body: JSON.stringify({
@@ -21,8 +23,8 @@ test('registering a new account lands on the home page', async ({ page }) => {
 				expires_in: 900,
 				user: { ...userDto, username: 'newuser' }
 			})
-		})
-	);
+		});
+	});
 
 	await page.goto('/auth/register');
 	await page.getByLabel('Username').fill('newuser');
@@ -35,8 +37,10 @@ test('registering a new account lands on the home page', async ({ page }) => {
 });
 
 test('registration with a taken username shows an error', async ({ page }) => {
-	await page.route('**/auth/register', (route) =>
-		route.fulfill({
+	await page.route('**/auth/register', (route) => {
+		if (route.request().resourceType() === 'document') return route.continue();
+
+		return route.fulfill({
 			status: 422,
 			contentType: 'application/json',
 			body: JSON.stringify({
@@ -44,8 +48,8 @@ test('registration with a taken username shows an error', async ({ page }) => {
 				message: 'has already been taken',
 				errors: [{ field: 'username', message: 'has already been taken' }]
 			})
-		})
-	);
+		});
+	});
 
 	await page.goto('/auth/register');
 	await page.getByLabel('Username').fill('taken');

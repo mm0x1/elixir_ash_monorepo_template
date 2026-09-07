@@ -1,15 +1,12 @@
 # Minimal Docker Compose for local development
 # Runs only the PostgreSQL database - backend and frontend run natively
 #
-# Usage:
-#   docker compose -f docker-compose.db.yml up -d
-#   cd backend && mix setup && mix phx.server
-#   cd frontend && npm install && npm run dev
+# The recommended workflow is `mise run setup` followed by `mise run dev`.
+# Use this file directly when working on the database only.
 
 services:
   database:
     image: postgres:16-alpine
-    container_name: template_postgres
     ports:
       - "${DATABASE_PORT:-5432}:5432"
     environment:

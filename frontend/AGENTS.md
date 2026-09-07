@@ -16,6 +16,14 @@ purely client-rendered Svelte component.
 `npm run check` runs `svelte-check --tsgo` (TypeScript 7 via `@typescript/native`).
 `typescript` 6.x is the build compiler; `tsgo` is the checker. Do not use `tsc --noEmit`.
 
+Use `npm ci` for a clean install. The package declares the Node and npm versions
+used by `mise.toml`; `engine-strict=true` rejects incompatible runtimes.
+
+Vite loads environment files from the repository root and runs on
+`127.0.0.1:5173` with `strictPort`. During local development it proxies
+`/auth`, `/account`, and `/health` to Phoenix on the configured backend port.
+The frontend can therefore use relative API URLs locally.
+
 ## Tailwind CSS 4
 
 Uses the `@tailwindcss/vite` plugin — no `tailwind.config.js` or PostCSS config.

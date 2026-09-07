@@ -26,7 +26,7 @@ defmodule TemplateAppWeb.Plugs.EnsureAdminPlug do
       else
         conn
         |> put_flash(:error, "You must be an administrator to access this page.")
-        |> redirect(to: "/")
+        |> redirect(to: "/dev/admin/sign-in")
         |> halt()
       end
     end

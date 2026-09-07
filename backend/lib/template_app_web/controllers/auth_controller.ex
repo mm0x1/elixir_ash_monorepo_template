@@ -11,6 +11,9 @@ defmodule TemplateAppWeb.AuthController do
   """
 
   use TemplateAppWeb, :controller
+  use AshAuthentication.Phoenix.Controller
+
+  defoverridable call: 2
 
   import TemplateAppWeb.Helpers.UserSerializer, only: [serialize_user: 1]
 
@@ -30,6 +33,41 @@ defmodule TemplateAppWeb.AuthController do
 
   @refresh_token_cookie "_template_app_refresh"
   @refresh_token_max_age 7 * 24 * 60 * 60
+
+  # These callbacks serve the development-only browser session used by Ash Admin.
+  # The REST login actions below remain token-based for the SPA.
+  def success(conn, _activity, user, _token) do
+    conn
+    |> store_in_session(user)
+    |> assign(:current_user, user)
+    |> redirect(to: "/admin")
+  end
+
+  def failure(conn, _activity, _reason) do
+    conn
+    |> put_flash(:error, "Invalid username or password")
+    |> redirect(to: "/dev/admin/sign-in")
+  end
+
+  def sign_out(conn, _params) do
+    conn
+    |> clear_session(:template_app)
+    |> redirect(to: "/dev/admin/sign-in")
+  end
+
+  def call(conn, {_subject_name, _strategy_name, :register}) do
+    dev_registration_disabled(conn, %{})
+  end
+
+  def call(conn, opts), do: super(conn, opts)
+
+  def dev_registration_disabled(conn, _params) do
+    ApiResponse.forbidden(
+      conn,
+      "registration_disabled",
+      "Registration is not available from the development admin login"
+    )
+  end
 
   def login(conn, %{"username" => username, "password" => password}) do
     case Accounts.sign_in(username, password) do

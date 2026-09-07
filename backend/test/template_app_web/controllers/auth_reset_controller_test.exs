@@ -130,8 +130,8 @@ defmodule TemplateAppWeb.AuthResetControllerTest do
     end
 
     test "returns generic validation error for an unknown username (anti-enumeration)", %{
-           conn: conn
-         } do
+      conn: conn
+    } do
       conn =
         post(conn, ~p"/auth/reset-password", %{
           username: "ghost",

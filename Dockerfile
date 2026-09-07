@@ -1,5 +1,22 @@
-# Stage 1: Build the Elixir release
-FROM hexpm/elixir:1.20.2-erlang-29.0.4-debian-bookworm-20250428 AS builder
+# Stage 1: Build the frontend SPA
+FROM node:22.23.2-bookworm-slim AS frontend
+
+WORKDIR /app
+
+COPY frontend/package.json frontend/package-lock.json ./
+COPY frontend/svelte.config.js ./
+COPY frontend/.npmrc ./
+RUN npm ci
+
+COPY frontend/ ./
+
+ARG VITE_API_URL=
+ENV VITE_API_URL=${VITE_API_URL}
+
+RUN npm run build
+
+# Stage 2: Build the Elixir release
+FROM hexpm/elixir:1.20.2-erlang-29.0.4-debian-bookworm-20260713-slim AS builder
 
 RUN apt-get update -y && apt-get install -y build-essential git && \
     apt-get clean && rm -rf /var/lib/apt/lists/*
@@ -18,20 +35,10 @@ RUN mix deps.compile
 
 COPY backend/lib lib/
 COPY backend/priv priv/
+COPY --from=frontend /app/build priv/static/
 
 RUN mix compile
 RUN mix release
-
-# Stage 2: Build the frontend
-FROM node:22-bookworm-slim AS frontend
-
-WORKDIR /app
-
-COPY frontend/package.json frontend/package-lock.json ./
-RUN npm ci
-
-COPY frontend/ ./
-RUN npm run build
 
 # Stage 3: Production runner
 FROM debian:bookworm-slim AS runner
@@ -52,7 +59,6 @@ RUN useradd --create-home app
 USER app
 
 COPY --from=builder --chown=app:app /app/_build/prod/rel/template_app ./
-COPY --from=frontend --chown=app:app /app/build ./priv/static
 
 EXPOSE 4000
 

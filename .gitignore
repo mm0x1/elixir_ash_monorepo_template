@@ -109,3 +109,9 @@ lefthook-local.yml
 # AI workflow scratch (planning artifacts — not committed)
 # =============================================================================
 .ai/
+.goosehints
+
+# Local mise overrides
+mise.local.toml
+mise.local.lock
+pitchfork.local.toml

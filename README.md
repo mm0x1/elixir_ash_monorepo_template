@@ -11,21 +11,46 @@ Phoenix/Ash REST API backend + SvelteKit SPA frontend.
 ## Quick start
 
 ```bash
-# 0. Install tool versions (Elixir, Erlang, Node) — requires mise (https://mise.jdx.dev)
+# Install the pinned development tools (requires mise: https://mise.jdx.dev)
 mise install
 
-# 1. Copy and configure secrets
+# Optional: create a root env file for local overrides.
+# The defaults work without this file.
 cp .env.example .env
 
-# 2. Start database
-docker compose -f docker-compose.db.yml up -d
+# Prepare PostgreSQL, backend/frontend dependencies, schema, seeds, and hooks.
+mise run setup
 
-# 3. Backend
-cd backend && mix setup && mix phx.server   # localhost:4000
-
-# 4. Frontend (new terminal)
-cd frontend && npm install && npm run dev   # localhost:5173
+# Start PostgreSQL, Phoenix, and Vite.
+mise run dev
 ```
+
+The app is available at http://127.0.0.1:5173 and the API at
+http://127.0.0.1:4000. Vite proxies local `/auth`, `/account`, and `/health`
+requests to Phoenix, so `VITE_API_URL` is not needed for local development.
+
+Application services run under Pitchfork. Use `mise run dev:logs` to follow
+Phoenix and Vite logs, `mise run status` to inspect services, and `mise run stop`
+to stop the application and database. `./dev.sh` remains available as a
+compatibility wrapper around these tasks.
+
+Useful development tasks:
+
+```bash
+mise tasks                         # List all tasks
+mise run reset                     # Reset and reseed the local database
+mise run check                     # Backend and frontend quality checks
+mise run test:unit                 # Backend and frontend unit tests
+mise run test                      # Full tests, including Playwright
+mise run backend:test:stale        # Fast affected backend tests
+mise run frontend:test:unit:watch  # Fast frontend test feedback
+mise run frontend:test:e2e:ui      # Playwright UI mode
+```
+
+The seeded accounts are `user/password123`, `admin/password123`, and
+`superadmin/password123`. The backend dashboard is available at
+http://127.0.0.1:4000/dev/dashboard. The development-only Ash Admin login is at
+http://127.0.0.1:4000/dev/admin/sign-in.
 
 ## TypeScript setup
 
