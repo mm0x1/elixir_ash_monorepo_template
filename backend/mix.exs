@@ -24,7 +24,13 @@ defmodule TemplateApp.MixProject do
   defp usage_rules do
     [
       file: "AGENTS.md",
-      usage_rules: [:usage_rules, :ash, ~r/^ash_/, :igniter]
+      usage_rules: [
+        :usage_rules,
+        {:ash, sub_rules: []},
+        {:ash, sub_rules: :all, main: false, link: :markdown},
+        {~r/^ash_/, link: :markdown},
+        :igniter
+      ]
     ]
   end
 
