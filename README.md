@@ -8,7 +8,9 @@ Phoenix/Ash REST API backend + SvelteKit SPA frontend.
 - **Frontend**: SvelteKit 2, Svelte 5, TypeScript, Tailwind CSS 4
 - **Auth**: username/password (Argon2) with hybrid tokens — JWT access tokens (15 min) + DB-backed refresh tokens (7 days, HttpOnly cookie); password reset via single-use, expiring recovery codes (no email)
 
-## Quick start
+## Local development
+
+Requires Docker and mise.
 
 ```bash
 # Install the shared development tools (requires mise: https://mise.jdx.dev)
@@ -18,27 +20,27 @@ mise install
 # The defaults work without this file.
 cp .env.example .env
 
-# Start PostgreSQL, install dependencies, prepare the database and hooks, and
-# launch Phoenix and Vite in the Tilt UI. The task installs the pinned local
-# Tilt binary when needed.
+# Start PostgreSQL, prepare the app, and run Phoenix and Vite under Tilt.
+# The task installs the pinned local Tilt binary when needed.
 mise run tilt
 ```
 
-The app is available at http://127.0.0.1:5173 and the API at
+The default app URL is http://127.0.0.1:5173 and the API URL is
 http://127.0.0.1:4000. Vite proxies local `/auth`, `/account`, and `/health`
-requests to Phoenix, so `VITE_API_URL` is not needed for local development.
+requests to Phoenix, so `VITE_API_URL` is not needed locally. Override `PORT`
+or other local settings in `.env` when needed.
 
-Tilt runs setup as each dependent resource starts: it waits for PostgreSQL,
-prepares the backend before Phoenix, and installs frontend dependencies before
-Vite. Open the Tilt UI to follow filtered application and database logs,
-inspect readiness, and open the application endpoints. Press `Ctrl+C` once;
-the lifecycle wrapper stops the native services and runs `tilt down` for the
-PostgreSQL container while retaining its named volume. If the wrapper is
-  forcibly terminated, recover with `mise exec tilt@0.37.7 -- tilt down`.
+Tilt waits for PostgreSQL, runs backend setup and seeds before Phoenix, installs
+frontend dependencies and hooks, and exposes readiness, logs, and links in its
+UI. Source edits continue to use Phoenix reload and Vite HMR; dependency,
+configuration, migration, and seed changes rerun only the relevant setup.
+Press `Ctrl+C` once to stop the native services and PostgreSQL while retaining
+the named database volume. If the wrapper is forcibly terminated, recover with
+`mise exec tilt@0.37.7 -- tilt down`.
 
-`mise run setup` remains available for one-shot dependency, migration, seed,
-and hook preparation without starting application servers. Use `mise run
-db:up`, `mise run db:down`, and `mise run db:logs` for database-only work.
+`mise run setup` remains available for one-shot dependency, migration, seed, and
+hook preparation without starting application servers. Use `mise run db:up`,
+`mise run db:down`, and `mise run db:logs` for database-only work.
 
 Useful development tasks:
 
@@ -46,15 +48,20 @@ Useful development tasks:
 mise tasks                         # List all tasks
 mise run tilt                      # Start the recommended Tilt workflow
 mise run setup                     # One-shot dependency/database preparation
+mise run db:up                     # Start PostgreSQL only
+mise run db:down                   # Stop PostgreSQL
 mise run db:logs                   # Follow PostgreSQL logs without the app
 mise run reset                     # Reset and reseed the local database
 mise run check                     # Backend and frontend quality checks
+mise run build                     # Backend compile and frontend build
 mise run test:unit                 # Backend and frontend unit tests
 mise run test                      # Full tests, including Playwright
 mise run backend:test:stale        # Fast affected backend tests
 mise run frontend:test:unit:watch  # Fast frontend test feedback
 mise run frontend:test:e2e:ui      # Playwright UI mode
 ```
+
+`mise run reset` is destructive and intended for the local database only.
 
 The seeded accounts are `user/password123`, `admin/password123`, and
 `superadmin/password123`. The backend dashboard is available at
