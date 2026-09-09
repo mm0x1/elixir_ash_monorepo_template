@@ -1,78 +1,83 @@
-# Frontend — Agent Guide
+# Frontend Agent Guide
 
-SvelteKit 2 SPA (Svelte 5, TypeScript, Vite, Tailwind CSS 4).
+Applies to `frontend/` and its descendants. Shared monorepo rules live in `../AGENTS.md`; read that file before frontend work. This file is symlinked by `CLAUDE.md` in this directory.
 
-The monorepo overview is in `../AGENTS.md`; coding conventions in `../.claude/conventions.md`.
-Read both before writing code — they cover the auth flow, API contract, TS style, and critical rules.
+## Runtime and Deployment
 
-## SPA — no SSR
+- This is a SvelteKit 2 SPA using Svelte 5 and `adapter-static`.
+- SSR is disabled at runtime. The build produces static output with `index.html` as the client-side fallback.
+- Standalone static hosts must rewrite unknown client routes to `index.html`.
+- The local preview command uses `scripts/serve-spa.mjs` and `sirv` on `127.0.0.1:4173`; it is not Vite's built-in preview server.
+- The combined Docker release copies the static output into Phoenix, whose wildcard route serves the fallback.
+- Local Vite development runs on `127.0.0.1:5173` with `strictPort: true` and proxies `/auth`, `/account`, and `/health` to Phoenix using the root `PORT` value.
 
-This app uses `adapter-static` with `fallback: 'index.html'`. All routing is client-side.
-No server load functions, no form actions, no server-only modules. Every route is a
-purely client-rendered Svelte component.
+## Type Checking and Tooling
 
-## Type checking
+Use the pinned Node and npm versions from `mise.toml` and `package.json`. Use `npm ci` for a clean install.
 
-`npm run check` runs `svelte-check --tsgo` (TypeScript 7 via `@typescript/native`).
-`typescript` 6.x is the build compiler; `tsgo` is the checker. Do not use `tsc --noEmit`.
+`npm run check` runs `svelte-kit sync` and `svelte-check --tsgo`, using the native TypeScript 7 package through `@typescript/native`. `npm run build` runs Vite's transpile and bundle pipeline; it does not replace type checking. Do not substitute bare `tsc --noEmit` for the Svelte-aware project check.
 
-Use `npm ci` for a clean install. The package declares the Node and npm versions
-used by `mise.toml`; `engine-strict=true` rejects incompatible runtimes.
+Tailwind CSS 4 uses the `@tailwindcss/vite` plugin. Do not create a `tailwind.config.*` or PostCSS configuration file.
 
-Vite loads environment files from the repository root and runs on
-`127.0.0.1:5173` with `strictPort`. During local development it proxies
-`/auth`, `/account`, and `/health` to Phoenix on the configured backend port.
-The frontend can therefore use relative API URLs locally.
+## Commands
 
-## Tailwind CSS 4
+Run these from `frontend/`:
 
-Uses the `@tailwindcss/vite` plugin — no `tailwind.config.js` or PostCSS config.
-Do not create a Tailwind config file.
-
-## Feature module structure
-
+```bash
+npm ci
+npm run check
+npm run lint
+npm run format:check
+npm run build
+npm run preview
+npm run test:unit
+npm run test:e2e
+npm run test
+npm run test:unit:related -- path/to/source-file.ts
+npx playwright install chromium
 ```
+
+The watch and UI-mode commands are interactive and are for human development, not agent verification.
+
+## Feature Structure and API Boundaries
+
+```text
 src/lib/features/<name>/
-  api/           # REST wrappers (use authenticatedFetch, return UI types)
-  types/         # UserDto (backend shape), User (UI shape), transforms
-  auth/          # (or other domain subfolders)
-  index.ts       # barrel — the public API for this feature
+  api/           # REST wrappers; return UI types
+  types/         # DTOs, UI types, and transforms
+  auth/          # authentication lifecycle code when needed
+  index.ts       # public feature API
 ```
 
-New features should follow this layout. `features → shared` is one-way (ESLint enforced).
+- Backend DTOs live in feature `types/` modules and are transformed into UI types at the API boundary. Components must not consume raw backend shapes.
+- API wrappers use `api.get/post/patch/put/delete` from `$lib/shared/api/client`; failed JSON responses go through `throwApiError`.
+- Authenticated feature calls pass `{ fetchFn: authenticatedFetch }`.
+- Raw `fetch` remains intentional in refresh, logout, and retry coordination because those functions implement the authentication transport boundary.
+- `features -> shared` is one-way. Shared code must not import from `$lib/features/`; this boundary is enforced by ESLint.
+- Use Svelte 5 runes in components: `$state`, `$derived`, `$effect`, and `$props`.
 
-## DTO → UI type boundary
+## Frontend Security
 
-Backend shapes (`UserDto`) live in `types/user.ts`. The `toUser()` transform in
-`types/transforms.ts` converts to UI types. API wrappers call `toUser()` — components
-never see raw DTOs.
+- `VITE_*` variables are public build-time configuration and are bundled into browser code. Never put secrets, signing keys, passwords, database credentials, or private API keys in them.
+- `VITE_API_URL` is for separately hosted frontend deployments. Local development normally uses the relative API URL and Vite proxy.
+- Separately hosted frontend and backend deployments require an exact backend CORS/`FRONTEND_URL` configuration and credentialed requests.
+- Access tokens remain in memory. Refresh tokens are sent through `credentials: 'include'` in an HttpOnly cookie; do not move them into local storage.
 
-When adding a new backend resource: define `FooDto` and `Foo` in `types/`, add a
-`toFoo()` transform, use it in the API wrapper.
+## Error Handling
 
-## Error handling
+- In UI and feature API code, handle `ApiError` explicitly and use the generic fallback for unknown errors.
+- The shared client maps 5xx responses to `Something went wrong` and uses the backend message for 4xx responses.
+- The refresh coordinator may swallow an authentication failure after clearing auth so callers receive the original unauthorized response; do not convert that transport behavior into ordinary feature API behavior.
 
-All API calls use `throwApiError(response, fallback)` from `$lib/shared/api/client`.
-All catch blocks check `ApiError`:
+## Testing
 
-```typescript
-catch (e) {
-  error = e instanceof ApiError ? e.message : 'Something went wrong';
-}
-```
+- Unit and integration tests live under `tests/unit/` and run in jsdom through Vitest.
+- `tests/support/setup-client.ts` mocks unavoidable SvelteKit seams such as `$app/navigation` and `$app/paths`, and wires MSW for network behavior.
+- Prefer user-visible assertions. Narrow seam assertions are appropriate for navigation, auth cleanup, downloads, and browser APIs when those results are not directly visible.
+- Shared fixtures live in `tests/support/fixtures.ts`; MSW handlers live in `tests/support/handlers.ts`.
+- Playwright tests live under `e2e/`. Playwright builds the SPA and runs `scripts/serve-spa.mjs` on port 4173.
+- E2E network calls are mocked with `page.route()`, not MSW, and must never depend on a live backend. Keep mocks limited to endpoints the test reaches.
 
-`throwApiError` maps 5xx → `"Something went wrong"`, 4xx → backend's `message` field.
+## Generated Files
 
-## Testing — Vitest (unit/integration)
-
-- Tests in `tests/unit/`, run in jsdom
-- `setup-client.ts` mocks `$app/navigation` and `$app/paths`, wires MSW
-- Shared fixtures: `tests/support/fixtures.ts`
-- MSW handlers: `tests/support/handlers.ts` — override per-test with `server.use(...)`
-- Assert on user-visible output, never component internals
-
-## Testing — Playwright (E2E)
-
-- Tests in `e2e/`, run against `vite preview` (built SPA)
-- Network mocked with `page.route()` — **not** MSW, never a live backend
-- Keep mocks minimal: only the endpoints the test actually hits
+Do not edit or commit `.svelte-kit/`, `build/`, `test-results/`, `playwright-report/`, Playwright cache output, or other generated frontend artifacts. `svelte-kit sync`, `npm run check`, and `npm run build` regenerate derived files as needed. Dependency changes must update `package-lock.json` through npm.

@@ -5,7 +5,6 @@ elixir = "1.20.2"
 erlang = "29.0.4"
 nodejs = "22.23.2"
 lefthook = "1.13.6"
-pitchfork = "2.24.2"
 
 [env]
 # Load the optional root dotenv file for every mise task. The backend and Compose
@@ -24,11 +23,15 @@ run = "docker compose -f docker-compose.db.yml down"
 description = "Follow PostgreSQL logs"
 run = "docker compose -f docker-compose.db.yml logs -f"
 
-[tasks."backend:setup"]
+[tasks."backend:prepare"]
 description = "Install backend dependencies, migrate, and seed the database"
 dir = "backend"
-depends = ["db:up"]
 run = "mix setup"
+
+[tasks."backend:setup"]
+description = "Prepare the backend after PostgreSQL is healthy"
+depends = ["db:up"]
+run = "mise run backend:prepare"
 
 [tasks."frontend:install"]
 description = "Install frontend dependencies from the lockfile"
@@ -43,25 +46,10 @@ run = "lefthook install"
 description = "Prepare the database, backend, frontend, and git hooks"
 depends = ["backend:setup", "frontend:install", "hooks:install"]
 
-[tasks.dev]
-description = "Start PostgreSQL, Phoenix, and Vite"
-depends = ["db:up"]
-run = "pitchfork start backend frontend"
-
-[tasks."dev:logs"]
-description = "Follow Phoenix and Vite logs"
-run = "pitchfork logs backend frontend --tail"
-
-[tasks.stop]
-description = "Stop Phoenix, Vite, and PostgreSQL"
-run = "bash scripts/stop.sh"
-
-[tasks.status]
-description = "Show local database and application service status"
-run = [
-  "docker compose -f docker-compose.db.yml ps",
-  "pitchfork list --project"
-]
+[tasks.tilt]
+description = "Start PostgreSQL, Phoenix, Vite, and the Tilt UI"
+tools.tilt = "0.37.7"
+run = "bash scripts/tilt.sh"
 
 [tasks.reset]
 description = "Drop, recreate, migrate, and seed the local database"

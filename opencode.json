@@ -1,0 +1,41 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "mcp": {
+    "tidewave": {
+      "type": "remote",
+      "url": "http://127.0.0.1:4000/tidewave/mcp",
+      "enabled": true
+    },
+    "hexdocs": {
+      "type": "local",
+      "command": ["npx", "-y", "hexdocs-mcp@0.6.0"],
+      "cwd": "backend",
+      "enabled": true
+    }
+  },
+  "permission": {
+    "tidewave_*": "ask",
+    "bash": {
+      "*": "ask",
+      "git status*": "allow",
+      "git diff*": "allow",
+      "git log*": "allow",
+      "git show*": "allow",
+      "git branch*": "allow",
+      "git remote*": "allow",
+      "git rev-parse*": "allow",
+      "mise tasks*": "allow",
+      "git commit*": "ask",
+      "git push*": "ask",
+      "git reset*": "ask",
+      "git clean*": "ask",
+      "git restore*": "ask",
+      "git checkout*": "ask",
+      "git switch*": "ask",
+      "git rebase*": "ask",
+      "git rm*": "ask",
+      "rm *": "ask",
+      "mise run reset*": "ask"
+    }
+  }
+}

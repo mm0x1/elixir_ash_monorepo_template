@@ -1,6 +1,6 @@
 import { defineConfig, devices } from '@playwright/test';
 
-// E2E runs against the built SPA served by `vite preview`. The backend network
+// E2E runs against the built SPA served by the custom `sirv` preview server. The backend network
 // seam is mocked per-test with `page.route` — these tests never touch a live
 // backend.
 export default defineConfig({

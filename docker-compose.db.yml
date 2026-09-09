@@ -1,8 +1,8 @@
 # Minimal Docker Compose for local development
 # Runs only the PostgreSQL database - backend and frontend run natively
 #
-# The recommended workflow is `mise run setup` followed by `mise run dev`.
-# Use this file directly when working on the database only.
+# The recommended workflow is `mise run tilt`. Use this file directly when
+# working on the database only.
 
 services:
   database:

@@ -8,9 +8,13 @@ Run the complete local workflow from the repository root:
 
 ```bash
 mise install
-mise run setup
-mise run dev
+mise run tilt
 ```
+
+The Tilt workflow installs frontend dependencies, prepares the backend and
+database, starts Phoenix and Vite, and provides unified logs and readiness in
+the Tilt UI. Use `mise run setup` when you need one-shot preparation without
+starting the application servers.
 
 For frontend-only work:
 
@@ -57,7 +61,7 @@ use the shared REST client and convert backend DTOs into UI types:
 ```typescript
 import { api } from '$lib/shared/api/client';
 import { authenticatedFetch } from '$lib/features/accounts/auth/refresh';
-import type { UserDto } from '$lib/features/accounts/types';
+import type { UserDto } from '$lib/features/accounts/types/user';
 import { toUser } from '$lib/features/accounts/types';
 
 export async function updateUsername(username: string) {
@@ -107,10 +111,10 @@ npx playwright install chromium
 
 ## Environment Variables
 
-| Variable        | Description                                             |
-| --------------- | ------------------------------------------------------- |
-| `VITE_API_URL`  | Optional absolute API URL for hosted/static deployments |
-| `VITE_APP_NAME` | Application name shown in the UI                        |
+| Variable        | Description                                                  |
+| --------------- | ------------------------------------------------------------ |
+| `VITE_API_URL`  | Optional absolute API URL for hosted/static deployments      |
+| `VITE_APP_NAME` | Optional application label; not currently consumed by source |
 
 The root `.env.example` contains the development defaults. Vite only exposes
 variables prefixed with `VITE_` to browser code.

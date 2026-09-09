@@ -1,151 +1,162 @@
 # Agent Guide
 
 Guidance for Claude Code and other coding agents working in this repository.
-`CLAUDE.md` is a symlink to this file — edit `AGENTS.md`, not the symlink.
+`CLAUDE.md` is a symlink to this file. Edit `AGENTS.md`, not the symlink.
 
-**Read `.claude/conventions.md` before writing code.**
+## Scope and Loading
 
-## Agent tooling
-
-This template is set up for AI-assisted development:
-
-- **Backend usage rules** — `backend/AGENTS.md` (symlinked as `backend/CLAUDE.md`) holds
-  package rules synced from deps via `mix usage_rules.sync` (config in `backend/mix.exs`). Consult it
-  before Ash/Phoenix/Elixir work. Re-sync after changing deps.
-- **Tidewave MCP** (dev) — runtime tools against the running app (IEx eval, SQL, Ecto schema
-  introspection, version-accurate docs). Mounted in `endpoint.ex` at `/tidewave/mcp`; configured in
-  `.mcp.json`. Start `mix phx.server` first.
-- **HexDocs MCP** — semantic search over versioned HexDocs for deps in `mix.lock` (`.mcp.json`).
+- This file defines shared monorepo rules and applies to both projects.
+- `backend/AGENTS.md` applies to backend work and contains generated package references.
+- `frontend/AGENTS.md` applies to frontend work.
+- When working from the repository root, explicitly read the nested guide for the project being changed. OpenCode does not recursively follow file references in prose.
+- Keep shared rules here and project-specific rules in the nearest scoped guide. Do not create a second conventions file.
 
 ## Stack
 
-- **Backend** (`backend/`): Phoenix 1.8, Ash 3.x, PostgreSQL — plain REST/JSON, no RPC layer
-- **Frontend** (`frontend/`): SvelteKit 2, Svelte 5, TypeScript, Vite, Tailwind CSS 4 — SPA.
-  Type-checking uses TypeScript 7 (`tsgo`) via svelte-check `--tsgo`; `typescript` (6.x) stays the
-  primary compiler and `@typescript/native` provides TS7 (see `frontend/package.json`).
-- **Auth**: username/password (Argon2) with hybrid tokens; single-use, expiring recovery codes for
-  password reset (no email)
+- **Backend** (`backend/`): Phoenix 1.8, Ash 3.x, PostgreSQL, REST/JSON API, and a development-only browser/admin surface.
+- **Frontend** (`frontend/`): SvelteKit 2, Svelte 5, TypeScript, Vite, Tailwind CSS 4, and a static SPA build.
+- **Authentication**: username/password with Argon2, short-lived bearer access tokens, database-backed refresh tokens, and one-time recovery codes. There is no email flow.
+- **Tooling**: Elixir, Erlang, Node.js, and Lefthook versions are pinned in `mise.toml`; frontend npm and Node requirements are also declared in `frontend/package.json`.
 
-## Commands
+## Canonical Workflows
+
+Run these from the repository root:
 
 ```bash
-# Root workflow (recommended)
 mise install
-mise run setup             # Install deps, create/migrate/seed DB, install hooks
-mise run dev               # Start PostgreSQL, Phoenix, and Vite
-mise run dev:logs          # Follow Phoenix and Vite logs
-mise run stop              # Stop application services and PostgreSQL
-mise run reset             # Reset and reseed the local database
-mise tasks                 # List all repository tasks
-
-# Backend (run from backend/ when working on backend-only tasks)
-mix setup            # Install backend deps, create + migrate + seed DB
-mix phx.server       # Run API on 127.0.0.1:4000
-mix ash.codegen      # Generate migrations after changing Ash resources
-mix test             # Tests (DB must be up)
-mix quality          # Backend format + Credo --strict + compile checks
-mix quality.fix      # Auto-format the backend
-
-# Frontend (run from frontend/ for frontend-only tasks)
-npm ci               # Deterministic install from package-lock.json
-npm run dev          # Vite dev server on 127.0.0.1:5173
-npm run check        # svelte-check (types, via tsgo/TS7)
-npm run lint         # ESLint
-npm run test:unit    # Vitest unit + integration (jsdom, MSW)
-npm run test:e2e     # Playwright E2E (network mocked, never a live backend)
+mise run setup       # local dependencies, database setup, seeds, and hooks
+mise run tilt        # PostgreSQL, Phoenix, Vite, and the Tilt UI
+mise run check       # backend quality, codegen, frontend check/lint/format
+mise run test        # backend, frontend unit, and browser tests
+mise run build       # backend compile and frontend build
 ```
 
-Tool versions and cross-repository tasks are defined in `mise.toml`. The optional
-root `.env` is loaded by mise tasks and by Vite; `direnv` remains an optional
-interactive-shell convenience. PostgreSQL is the only container in the default
-workflow. Pitchfork supervises the native Phoenix and Vite processes.
+Database tasks:
 
-## Structure
-
-```
-backend/lib/template_app/
-  accounts/                    # Accounts domain
-    resources/                 #   user.ex, token.ex, refresh_token.ex
-    changes/ validations/      #   custom Ash changes + validations
-    accounts.ex               #   domain module + code interfaces
-  application.ex config.ex repo.ex secrets.ex
-backend/lib/template_app_web/
-  controllers/                 # auth_controller, account_controller, health_controller
-  plugs/                       # validate_access_token, ensure_authenticated, ensure_admin
-  helpers/                     # user_serializer, api_response (shared JSON shaping)
-  router/router.ex             # API routes (+ /admin, /dev in dev only)
-
-frontend/src/lib/
-  features/accounts/           # api/ (REST wrappers), auth/ (store + refresh), types/
-  shared/                      # api/ (HTTP client), auth/ (token store), components/, stores/
-frontend/src/routes/           # SvelteKit pages (auth/, profile/, dev/)
-frontend/tests/  frontend/e2e/ # Vitest unit/integration  ·  Playwright specs
+```bash
+mise run db:up
+mise run db:logs
+mise run db:down
+mise run reset        # destructive: drops, recreates, migrates, and reseeds local data
 ```
 
-## Auth & API
+The reset task is local-development-only. Verify the database configuration before running it. Never run setup, reset, seeds, or Tidewave against production or a shared database.
 
-REST endpoints (see `router.ex`): public `POST /auth/{login,register,refresh,request-reset,reset-password}`; token-gated `POST /auth/{logout,logout_all}`, `GET /auth/me`, and `/account/{username,recovery-codes,convert}`.
+Backend commands run from `backend/`:
 
-| Token | Lifetime | Storage | Validation |
-|-------|----------|---------|------------|
-| Access | 15 min | Svelte store (memory) | stateless JWT, every request |
-| Refresh | 7 days | HttpOnly cookie | DB-backed, only `/auth/refresh` |
-
-The frontend's API calls go through `api.get/post/patch/put/delete` from `shared/api/client` (handles JSON, credentials, errors). Authenticated endpoints pass `{ fetchFn: authenticatedFetch }` — `authenticatedFetch` (from `auth/refresh.ts`) injects auth headers and retries once on 401. Backend DTOs (snake_case) are transformed into UI types via a shared `toUser()` in `types/transforms.ts`.
-
-For local development, Vite loads the root environment and proxies `/auth`,
-`/account`, and `/health` to the backend. The proxy uses the configured backend
-`PORT`, defaulting to 4000. Keep the local frontend port at 5173 so startup
-failures are explicit rather than silently moving to another origin.
-
-## Critical rules
-
-1. **Resolve the actor for Ash** — `ValidateAccessToken` must call `Ash.PlugHelpers.set_actor(conn, user)` (not just `assign`). Without it, update/create/destroy actions return Forbidden (reads pass via `authorize_if always()`).
-2. **Policies are deny-by-default** — explicitly allow each action. `action(:read)` matches only the default `:read`; use `action_type(:read)` to cover named read actions.
-3. **`features → shared` is one-way** — shared code never imports from `features/` (ESLint enforced).
-4. **API calls use the `api` helper** — `api.get/post/patch/put/delete` from `shared/api/client` handles JSON serialization, credentials, and error throwing. Authenticated endpoints pass `{ fetchFn: authenticatedFetch }`. Components consume UI types, never raw backend shapes.
-5. **Svelte 5 runes in components** — `$state`, `$derived`, `$effect`, `$props` (not legacy stores).
-
-## Patterns
-
-```elixir
-# Ash resource (backend/lib/template_app/<domain>/resources/thing.ex)
-defmodule TemplateApp.Accounts.Resources.Thing do
-  use Ash.Resource, domain: TemplateApp.Accounts, data_layer: AshPostgres.DataLayer,
-    authorizers: [Ash.Policy.Authorizer]
-
-  postgres do; table "things"; repo TemplateApp.Repo; end
-  attributes do; uuid_primary_key :id; attribute :name, :string, allow_nil?: false; timestamps(); end
-  actions do; defaults [:read, :destroy]; create :create do; accept [:name]; end; end
-  policies do; policy action_type(:read), authorize_if: always(); end
-end
+```bash
+mix setup                         # local deps, database setup, and development seeds
+mix quality                       # format check, Credo, and warnings-as-errors compilation
+mix test                          # database-backed tests; PostgreSQL must be running
+mix codegen.dev                   # iterate on Ash changes with development migrations
+mix ash.codegen add_descriptive_name
+mix codegen.check                 # verify resources, migrations, and snapshots are synchronized
+mix ash.migrate                   # apply reviewed migrations
+mix sobelow --skip                # security scan; review findings rather than ignoring them
 ```
 
-```typescript
-// REST API wrapper (frontend/src/lib/features/accounts/api/accounts.ts)
-import { api } from '$lib/shared/api/client';
-import type { UserDto } from '$lib/features/accounts/types';
-import { toUser } from '$lib/features/accounts/types';
-import { authenticatedFetch } from '$lib/features/accounts/auth/refresh';
+After changing Ash resources, use `mix codegen.dev` during iteration or a named `mix ash.codegen` command for a final migration. Review both `backend/priv/repo/migrations/` and `backend/priv/resource_snapshots/` before applying or committing generated changes.
 
-export async function updateUsername(_userId: string, username: string): Promise<User> {
-  const data = await api.patch<{ user: UserDto }>('/account/username', { username }, {
-    fetchFn: authenticatedFetch, errorMessage: 'Failed to update username'
-  });
-  return toUser(data.user);
-}
+Frontend commands run from `frontend/`:
+
+```bash
+npm ci
+npm run check
+npm run lint
+npm run format:check
+npm run build
+npm run test:unit
+npm run test:e2e
+npm run test
 ```
 
-## Testing
+Install the Playwright browser when setting up a new machine:
 
-- **Backend**: real Ash actions / real controllers against the Ecto sandbox — never mock the code under test. Controller tests that drive update/destroy actions (`Ash.bulk_update`) or `manage_relationship` must be `async: false` (shared sandbox). Reuse `test/support/user_fixtures.ex`.
-- **Frontend**: assert on user-visible output, never internals. Network is the only thing mocked — MSW (`tests/support/`) for integration, `page.route` for Playwright. Shared fixtures in `tests/support/fixtures.ts`.
+```bash
+npx playwright install chromium
+```
 
-## Docs
+Do not run watch or UI-mode test commands as agent verification. They are interactive commands for a human developer.
+
+## Agent Tooling and Safety
+
+- OpenCode MCP servers are configured in the project `opencode.json`. The legacy `.mcp.json` is retained only for clients that use that schema.
+- Tidewave connects to the development Phoenix endpoint at `/tidewave/mcp`. Start Phoenix first. It provides privileged IEx and SQL access and must remain local-development-only. The project OpenCode URL targets the default `PORT=4000`; update `opencode.json` when using a custom backend port.
+- HexDocs MCP is configured for the backend dependency context. Use it for version-accurate dependency documentation rather than guessing APIs.
+- `mix setup` and the repository seed scripts create predictable development credentials. Never reuse them in production.
+- Never expose `VITE_*` variables as secrets. Vite bundles them into browser code at build time. Signing keys, passwords, database credentials, and private API keys do not belong in frontend environment variables.
+- Never use `authorize?: false` to repair a policy failure or based on request input. Use the actor and explicit policies; reserve bypasses for documented internal operations, seeds, or tests.
+- Never commit `.env`, generated secrets, credentials, or local database data.
+
+## Repository Structure
+
+```text
+backend/lib/template_app/accounts/       # Ash domain, resources, changes, validations
+backend/lib/template_app_web/             # REST controllers, plugs, serializers, router
+backend/test/                             # ExUnit, Ecto sandbox, controller tests
+backend/priv/repo/migrations/             # reviewed database migrations
+backend/priv/resource_snapshots/          # Ash resource snapshots
+frontend/src/lib/features/<name>/         # feature API, auth, DTO/UI types
+frontend/src/lib/shared/                  # HTTP client, auth primitives, shared components
+frontend/src/routes/                      # client-side Svelte routes
+frontend/tests/                           # Vitest unit/integration tests
+frontend/e2e/                             # Playwright browser tests
+```
+
+## Authentication and API Contract
+
+The access token is a 15-minute bearer JWT held in the frontend memory store. It contains the user id and token version; authenticated requests also load the user and compare the token version with current database state.
+
+Refresh tokens are seven-day, database-backed tokens stored in an HttpOnly cookie. Refresh rotates the old token, logout removes the current refresh token, and logout-all increments the user token version to invalidate existing sessions.
+
+Public REST routes:
+
+| Method | Path |
+|--------|------|
+| `POST` | `/auth/login`, `/auth/register`, `/auth/refresh`, `/auth/request-reset`, `/auth/reset-password` |
+| `GET` | `/health` |
+
+Authenticated REST routes:
+
+| Method | Path |
+|--------|------|
+| `POST` | `/auth/logout`, `/auth/logout_all` |
+| `GET` | `/auth/me` |
+| `PATCH` | `/account/username` |
+| `POST` | `/account/recovery-codes`, `/account/convert` |
+
+The development-only browser routes under `/dev` and `/admin` use a separate AshAuthentication browser session. Do not treat them as bearer-token REST endpoints.
+
+Backend REST controller responses should use `TemplateAppWeb.Helpers.ApiResponse` for ordinary success and domain-error responses. Health checks, authentication/rate-limit plugs, browser routes, and development/admin routes are explicit exceptions where direct framework responses are intentional.
+
+Frontend feature API wrappers use `api.get/post/patch/put/delete` from `frontend/src/lib/shared/api/client.ts`. Authenticated feature calls pass `authenticatedFetch`. The refresh, logout, and retry coordinator use raw `fetch` intentionally because they implement the authentication transport boundary.
+
+Backend DTOs are transformed into frontend UI types at the feature API boundary. Components should not consume raw backend shapes. Keep the dependency direction one-way: `features -> shared`; shared code must not import from features.
+
+## Cross-Stack Rules
+
+- Every Ash operation must have the correct actor. `ValidateAccessToken` must call `Ash.PlugHelpers.set_actor(conn, user)`, not merely assign the user to the connection.
+- Ash policies are deny-by-default. Allow each action explicitly; use `action_type(:read)` when named read actions must be covered.
+- Prefer named Ash actions and domain code interfaces over generic CRUD calls from web modules.
+- Pattern match on function heads when that makes the code clearer; use `with` for chained `{:ok, _}` / `{:error, _}` operations.
+- Prefer `type` over `interface`, `readonly` type properties, named exports, and `??` for nullable defaults.
+- Use Svelte 5 runes in components: `$state`, `$derived`, `$effect`, and `$props`.
+- Keep serializers pure and shape responses explicitly. Do not return raw Ash structs from JSON endpoints.
+- Do not add runtime response schemas without a concrete requirement; the monorepo DTO boundary is the current contract.
+
+## Testing Rules
+
+- Backend tests exercise real Ash actions and controllers against the Ecto sandbox. Do not mock the code under test.
+- Controller tests involving Ash processes, `Ash.bulk_update`, or relationship management use `async: false` when required by the shared sandbox setup.
+- Frontend unit tests use Vitest, jsdom, and MSW. Prefer user-visible assertions; narrow assertions on navigation, auth cleanup, downloads, and browser APIs are acceptable when those outcomes are not directly visible.
+- Playwright builds the SPA and serves it through `frontend/scripts/serve-spa.mjs`, a `sirv` single-page fallback server on port 4173. E2E tests mock network calls with `page.route()` and never use a live backend.
+- Do not edit or commit `.svelte-kit/`, `build/`, Playwright reports, test results, or other generated frontend output.
+
+## Documentation Files
 
 | File | Purpose |
 |------|---------|
-| `AGENTS.md` (this file, `CLAUDE.md` → symlink) | Monorepo overview for agents |
-| `backend/AGENTS.md` (`backend/CLAUDE.md` → symlink) | Backend guide + synced package usage rules |
-| `.claude/conventions.md` | Coding style rules (read before writing) |
-| `README.md` | Human-facing quick start |
+| `AGENTS.md` (`CLAUDE.md -> AGENTS.md`) | Shared monorepo rules and cross-stack contract |
+| `backend/AGENTS.md` (`backend/CLAUDE.md -> AGENTS.md`) | Backend-specific rules and generated package references |
+| `frontend/AGENTS.md` (`frontend/CLAUDE.md -> AGENTS.md`) | Frontend-specific rules and workflows |
+| `README.md` | Human-facing setup and product documentation |
