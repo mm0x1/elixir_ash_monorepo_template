@@ -46,6 +46,10 @@ defmodule TemplateApp.Accounts.Resources.RefreshToken do
       change {SetTokenExpiry, lifetime_days: @refresh_token_lifetime_days}
     end
 
+    destroy :revoke_for_password_reset do
+      accept []
+    end
+
     read :by_id do
       get? true
       argument :id, :uuid, allow_nil?: false
@@ -60,7 +64,7 @@ defmodule TemplateApp.Accounts.Resources.RefreshToken do
 
   policies do
     # Users can only destroy their own tokens
-    policy action(:destroy) do
+    policy action([:destroy, :revoke_for_password_reset]) do
       authorize_if relates_to_actor_via(:user)
     end
 

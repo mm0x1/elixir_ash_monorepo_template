@@ -3,32 +3,34 @@ defmodule TemplateApp.Accounts.Validations.ValidateRecoveryCode do
 
   use Ash.Resource.Validation
 
+  @invalid_code_message "invalid recovery code"
+
   @impl true
   def validate(changeset, _opts, _ctx) do
     code = Ash.Changeset.get_argument(changeset, :recovery_code)
     user = changeset.data
 
-    cond do
-      user.is_anonymous ->
-        {:error, field: :recovery_code, message: "anonymous users cannot reset password"}
-
-      Enum.empty?(user.recovery_codes || []) ->
-        {:error, field: :recovery_code, message: "no recovery codes configured"}
-
-      expired?(user.recovery_codes_generated_at) ->
-        {:error, field: :recovery_code, message: "recovery codes have expired"}
-
-      not Enum.any?(user.recovery_codes, &Argon2.verify_pass(code, &1)) ->
-        {:error, field: :recovery_code, message: "invalid recovery code"}
-
-      true ->
-        :ok
+    if valid_code?(user, code) do
+      :ok
+    else
+      {:error, field: :recovery_code, message: @invalid_code_message}
     end
   end
 
-  # A nil timestamp means we cannot establish freshness, so treat the batch as
-  # expired. Otherwise the batch is valid for recovery_code_ttl_seconds.
-  defp expired?(nil), do: true
+  defp valid_code?(%{is_anonymous: true}, _code), do: false
+
+  defp valid_code?(_user, code) when not is_binary(code), do: false
+
+  defp valid_code?(%{recovery_codes: recovery_codes}, _code)
+       when recovery_codes in [nil, []],
+       do: false
+
+  defp valid_code?(%{recovery_codes_generated_at: nil}, _code), do: false
+
+  defp valid_code?(user, code) do
+    not expired?(user.recovery_codes_generated_at) and
+      Enum.any?(user.recovery_codes, &Argon2.verify_pass(code, &1))
+  end
 
   defp expired?(%DateTime{} = generated_at) do
     ttl = TemplateApp.Config.recovery_code_ttl_seconds()

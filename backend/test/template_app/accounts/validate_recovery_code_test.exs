@@ -26,6 +26,6 @@ defmodule TemplateApp.Accounts.ValidateRecoveryCodeTest do
     assert {:error, %Ash.Error.Invalid{} = error} =
              Accounts.reset_password_with_recovery_code(user, code, "newpassword123")
 
-    assert Exception.message(error) =~ "expired"
+    assert Exception.message(error) =~ "invalid recovery code"
   end
 end

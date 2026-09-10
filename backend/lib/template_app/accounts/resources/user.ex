@@ -109,6 +109,9 @@ defmodule TemplateApp.Accounts.Resources.User do
     end
 
     update :reset_password_with_recovery_code do
+      # The domain interface wraps this action in Ash.transact/3. The explicit
+      # transaction setting keeps the lock and all session revocations together.
+      transaction? true
       require_atomic? false
 
       argument :recovery_code, :string, allow_nil?: false, sensitive?: true
@@ -116,6 +119,7 @@ defmodule TemplateApp.Accounts.Resources.User do
 
       validate ValidateRecoveryCode
       validate {ValidatePasswordPolicy, [argument: :new_password]}
+      change get_and_lock_for_update()
       change ConsumeRecoveryCodeAndResetPassword
     end
 

@@ -6,11 +6,25 @@ defmodule TemplateApp.Accounts.UserActionsTest do
   would not be caught by reading the code alone.
   """
 
-  use TemplateApp.DataCase, async: true
+  use TemplateApp.DataCase, async: false
 
   import TemplateApp.UserFixtures
 
   alias TemplateApp.Accounts
+  alias TemplateApp.Accounts.Resources.RefreshToken
+
+  defp create_refresh_token(user) do
+    {:ok, token} =
+      RefreshToken
+      |> Ash.Changeset.for_create(:create, %{
+        user_id: user.id,
+        device_name: "test-device",
+        version: user.token_version
+      })
+      |> Ash.create()
+
+    token
+  end
 
   # ---------------------------------------------------------------------------
   # create_user (register_with_password)
@@ -143,6 +157,58 @@ defmodule TemplateApp.Accounts.UserActionsTest do
       assert {:error, %Ash.Error.Invalid{}} =
                Accounts.reset_password_with_recovery_code(user, code, password)
     end
+
+    test "only one concurrent reset can consume the same recovery code", %{
+      user: user,
+      plain_codes: [code | _]
+    } do
+      tasks =
+        Enum.map(["firstnewpassword", "secondnewpassword"], fn password ->
+          Task.async(fn ->
+            Accounts.reset_password_with_recovery_code(user, code, password)
+          end)
+        end)
+
+      results = Task.await_many(tasks, 15_000)
+
+      assert Enum.count(results, &match?({:ok, _}, &1)) == 1
+      assert Enum.count(results, &match?({:error, %Ash.Error.Invalid{}}, &1)) == 1
+
+      {:ok, updated_user} = Accounts.get_user_by_id(user.id)
+      assert length(updated_user.recovery_codes) == length(user.recovery_codes) - 1
+      assert updated_user.token_version == user.token_version + 1
+      refute Enum.any?(updated_user.recovery_codes, &Argon2.verify_pass(code, &1))
+    end
+
+    test "rolls back session revocation when the user update fails", %{
+      user: user,
+      plain_codes: [code | _]
+    } do
+      refresh_token = create_refresh_token(user)
+      max_integer = 9_223_372_036_854_775_807
+
+      TemplateApp.Repo.update_all(
+        from(u in TemplateApp.Accounts.Resources.User, where: u.id == ^user.id),
+        set: [token_version: max_integer]
+      )
+
+      {:ok, current_user} = Accounts.get_user_by_id(user.id)
+
+      assert {:error, _error} =
+               Accounts.reset_password_with_recovery_code(
+                 current_user,
+                 code,
+                 "newsecurepassword"
+               )
+
+      {:ok, unchanged_user} = Accounts.get_user_by_id(user.id)
+      assert unchanged_user.token_version == max_integer
+      assert unchanged_user.hashed_password == current_user.hashed_password
+      assert Enum.any?(unchanged_user.recovery_codes, &Argon2.verify_pass(code, &1))
+
+      {:ok, [restored_token]} = Accounts.get_refresh_tokens_for_user(user.id)
+      assert restored_token.id == refresh_token.id
+    end
   end
 
   # ---------------------------------------------------------------------------
@@ -190,6 +256,19 @@ defmodule TemplateApp.Accounts.UserActionsTest do
                  "longpassword",
                  password,
                  password,
+                 actor: anon
+               )
+    end
+
+    test "rejects a password shorter than 8 characters" do
+      anon = create_anonymous()
+
+      assert {:error, %Ash.Error.Invalid{}} =
+               Accounts.convert_to_registered(
+                 anon,
+                 "shortpassword",
+                 "short",
+                 "short",
                  actor: anon
                )
     end

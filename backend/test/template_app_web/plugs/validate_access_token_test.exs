@@ -57,6 +57,23 @@ defmodule TemplateAppWeb.Plugs.ValidateAccessTokenTest do
       assert conn.halted
       assert %{"message" => "Token has been revoked"} = json_response(conn, 401)
     end
+
+    test "rejects a token after password reset increments token_version", %{conn: conn} do
+      {user, [code | _]} = create_user_with_recovery_codes()
+      {:ok, token} = JWT.generate_access_token(user)
+
+      assert {:ok, _updated_user} =
+               TemplateApp.Accounts.reset_password_with_recovery_code(
+                 user,
+                 code,
+                 "newsecurepassword"
+               )
+
+      conn = conn |> with_bearer(token) |> call_plug()
+
+      assert conn.status == 401
+      assert conn.halted
+    end
   end
 
   describe "expired token" do

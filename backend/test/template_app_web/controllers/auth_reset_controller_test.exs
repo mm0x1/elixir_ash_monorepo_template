@@ -12,6 +12,26 @@ defmodule TemplateAppWeb.AuthResetControllerTest do
 
   import TemplateApp.UserFixtures
 
+  alias TemplateApp.Accounts
+  alias TemplateApp.Accounts.Resources.RefreshToken
+
+  defp create_refresh_token(user) do
+    {:ok, token} =
+      RefreshToken
+      |> Ash.Changeset.for_create(:create, %{
+        user_id: user.id,
+        device_name: "test-device",
+        version: user.token_version
+      })
+      |> Ash.create()
+
+    token
+  end
+
+  defp with_refresh_cookie(token_id) do
+    Plug.Test.put_req_cookie(build_conn(), "_template_app_refresh", token_id)
+  end
+
   # ---------------------------------------------------------------------------
   # POST /auth/reset-password
   # ---------------------------------------------------------------------------
@@ -40,6 +60,36 @@ defmodule TemplateAppWeb.AuthResetControllerTest do
         post(build_conn(), ~p"/auth/login", %{username: "switcher", password: "password123"})
 
       assert %{"error" => "invalid_credentials"} = json_response(old_login, 401)
+    end
+
+    test "invalidates the access token and refresh sessions created before reset", %{
+      conn: conn
+    } do
+      {user, [code | _]} = create_user_with_recovery_codes(%{username: "sessionreset"})
+      access_token = access_token_for(user)
+      refresh_token = create_refresh_token(user)
+
+      reset_conn =
+        post(conn, ~p"/auth/reset-password", %{
+          username: "sessionreset",
+          recovery_code: code,
+          new_password: "brandnewpassword"
+        })
+
+      assert %{"message" => _} = json_response(reset_conn, 200)
+
+      me_conn =
+        build_conn()
+        |> put_req_header("authorization", "Bearer #{access_token}")
+        |> get(~p"/auth/me")
+
+      assert %{"error" => "unauthorized"} = json_response(me_conn, 401)
+
+      refresh_conn = post(with_refresh_cookie(refresh_token.id), ~p"/auth/refresh")
+      assert %{"error" => "invalid_refresh_token"} = json_response(refresh_conn, 401)
+
+      {:ok, updated_user} = Accounts.get_user_by_id(user.id)
+      assert updated_user.token_version == user.token_version + 1
     end
 
     test "returns 422 when a code is reused", %{conn: conn} do
