@@ -38,6 +38,7 @@ The generated rules are package reference material. Project-specific rules in th
 - The REST API authenticates with username/password actions and custom short-lived Joken bearer access tokens; the identity field is username, not email.
 - Access tokens last 15 minutes, contain the user id and token version, and are checked against current database state on authenticated requests.
 - Refresh tokens last seven days, are database-backed, live in an HttpOnly cookie, rotate during refresh, and are removed by logout. Logout-all increments the user token version.
+- Device logout is cookie-based and remains available when the short-lived access token has expired. Logout-all still requires an authenticated access token.
 - Recovery codes are one-time credentials for password reset. They are stored hashed and are revealed only by the explicit recovery-code generation response.
 - Recovery codes are generated only by an authenticated account action. There is no username-only reset request, email delivery, or self-service recovery path after all stored codes are lost.
 - The development `/dev` and `/admin` browser surface uses a separate AshAuthentication browser session. Do not treat it as the bearer-token REST API.

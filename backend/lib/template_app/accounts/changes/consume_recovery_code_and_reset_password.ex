@@ -62,10 +62,7 @@ defmodule TemplateApp.Accounts.Changes.ConsumeRecoveryCodeAndResetPassword do
   defp revoke_refresh_tokens(user) do
     with {:ok, refresh_tokens} <- Accounts.get_refresh_tokens_for_user(user.id) do
       Enum.reduce_while(refresh_tokens, :ok, fn refresh_token, :ok ->
-        case Ash.destroy(refresh_token,
-               action: :revoke_for_password_reset,
-               actor: user
-             ) do
+        case Ash.destroy(refresh_token, action: :revoke, actor: user) do
           :ok ->
             {:cont, :ok}
 

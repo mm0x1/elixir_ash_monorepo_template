@@ -19,11 +19,11 @@ defmodule TemplateAppWeb.AuthController do
 
   alias TemplateApp.Accounts
   alias TemplateApp.Accounts.JWT
+  alias TemplateApp.Accounts.RefreshSessions
   alias TemplateApp.Accounts.Resources.RefreshToken
   alias TemplateAppWeb.Helpers.ApiResponse
   alias TemplateAppWeb.Plugs.RateLimitPlug
 
-  require Ash.Query
   require Logger
 
   plug(RateLimitPlug, [action: :login] when action in [:login])
@@ -109,10 +109,8 @@ defmodule TemplateAppWeb.AuthController do
 
   def refresh(conn, _params) do
     with {:ok, refresh_token_id} <- get_refresh_token_cookie(conn),
-         {:ok, refresh_token} <- get_valid_refresh_token(refresh_token_id),
-         {:ok, user} <- load_user_for_refresh(refresh_token),
-         {:ok, access_token} <- JWT.generate_access_token(user),
-         {:ok, new_refresh_token} <- rotate_refresh_token(refresh_token, user) do
+         {:ok, %{access_token: access_token, refresh_token: new_refresh_token}} <-
+           RefreshSessions.rotate(refresh_token_id) do
       conn
       |> set_refresh_cookie(new_refresh_token.id)
       |> ApiResponse.success(%{
@@ -143,27 +141,37 @@ defmodule TemplateAppWeb.AuthController do
         |> delete_refresh_cookie()
         |> ApiResponse.unauthorized("user_not_found", "User not found")
 
+      {:error, :rotation_failed} ->
+        conn
+        |> delete_refresh_cookie()
+        |> ApiResponse.internal_error("Failed to rotate refresh session")
+
       {:error, _reason} ->
-        ApiResponse.internal_error(conn, "Failed to refresh session")
+        conn
+        |> delete_refresh_cookie()
+        |> ApiResponse.internal_error("Failed to refresh session")
     end
   end
 
   def logout(conn, _params) do
     case get_refresh_token_cookie(conn) do
       {:ok, refresh_token_id} ->
-        case RefreshToken
-             |> Ash.Query.filter(id == ^refresh_token_id)
-             |> Ash.read_one() do
-          {:ok, token} when not is_nil(token) ->
-            Ash.destroy(token, actor: conn.assigns[:current_user])
+        case RefreshSessions.revoke(refresh_token_id) do
+          {:ok, :revoked} ->
+            conn
+            |> delete_refresh_cookie()
+            |> ApiResponse.message("Logged out successfully")
 
-          _ ->
-            :ok
+          {:ok, :already_logged_out} ->
+            conn
+            |> delete_refresh_cookie()
+            |> ApiResponse.message("Already logged out")
+
+          {:error, _reason} ->
+            conn
+            |> delete_refresh_cookie()
+            |> ApiResponse.internal_error("Failed to logout session")
         end
-
-        conn
-        |> delete_refresh_cookie()
-        |> ApiResponse.message("Logged out successfully")
 
       {:error, :no_cookie} ->
         ApiResponse.message(conn, "Already logged out")
@@ -253,18 +261,6 @@ defmodule TemplateAppWeb.AuthController do
     end
   end
 
-  defp rotate_refresh_token(old_token, user) do
-    Ash.destroy(old_token, authorize?: false)
-
-    RefreshToken
-    |> Ash.Changeset.for_create(:create, %{
-      user_id: user.id,
-      device_name: old_token.device_name,
-      version: user.token_version
-    })
-    |> Ash.create()
-  end
-
   defp create_refresh_token(conn, user) do
     device_name = get_device_name(conn)
 
@@ -289,37 +285,6 @@ defmodule TemplateAppWeb.AuthController do
       nil -> {:error, :no_cookie}
       "" -> {:error, :no_cookie}
       token_id -> {:ok, token_id}
-    end
-  end
-
-  defp get_valid_refresh_token(token_id) do
-    case Accounts.get_refresh_token_by_id(token_id) do
-      {:ok, token} ->
-        if DateTime.compare(token.expires_at, DateTime.utc_now()) == :lt do
-          {:error, :token_expired}
-        else
-          {:ok, token}
-        end
-
-      {:error, %Ash.Error.Query.NotFound{}} ->
-        {:error, :token_not_found}
-
-      {:error, _} ->
-        {:error, :token_not_found}
-    end
-  end
-
-  defp load_user_for_refresh(refresh_token) do
-    case Accounts.get_user_by_id(refresh_token.user_id) do
-      {:ok, user} ->
-        if user.token_version == refresh_token.version do
-          {:ok, user}
-        else
-          {:error, :token_version_mismatch}
-        end
-
-      {:error, _} ->
-        {:error, :user_not_found}
     end
   end
 

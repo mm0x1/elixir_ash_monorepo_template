@@ -61,11 +61,18 @@ defmodule TemplateAppWeb.Router do
     post("/reset-password", AuthController, :reset_password)
   end
 
-  # Authenticated auth endpoints (token required)
+  # Cookie-based device logout does not require a live access token.
+  scope "/auth", TemplateAppWeb do
+    pipe_through([:api])
+
+    post("/logout", AuthController, :logout)
+  end
+
+  # Authenticated auth endpoints (token required). Cookie-based device logout
+  # is defined separately above so an expired access token cannot block it.
   scope "/auth", TemplateAppWeb do
     pipe_through([:api, :authenticated_api])
 
-    post("/logout", AuthController, :logout)
     post("/logout_all", AuthController, :logout_all)
     get("/me", AuthController, :me)
   end

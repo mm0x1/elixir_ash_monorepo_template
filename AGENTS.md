@@ -113,14 +113,14 @@ Public REST routes:
 
 | Method | Path |
 |--------|------|
-| `POST` | `/auth/login`, `/auth/register`, `/auth/refresh`, `/auth/reset-password` |
+| `POST` | `/auth/login`, `/auth/register`, `/auth/refresh`, `/auth/logout`, `/auth/reset-password` |
 | `GET` | `/health` |
 
 Authenticated REST routes:
 
 | Method | Path |
 |--------|------|
-| `POST` | `/auth/logout`, `/auth/logout_all` |
+| `POST` | `/auth/logout_all` |
 | `GET` | `/auth/me` |
 | `PATCH` | `/account/username` |
 | `POST` | `/account/recovery-codes`, `/account/convert` |

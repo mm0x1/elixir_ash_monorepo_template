@@ -46,6 +46,24 @@ defmodule TemplateAppWeb.AuthControllerTest do
     token
   end
 
+  defp expired_access_token(user) do
+    signer =
+      Joken.Signer.create(
+        "HS256",
+        Application.fetch_env!(:template_app, :token_signing_secret)
+      )
+
+    claims = %{
+      "sub" => user.id,
+      "token_version" => user.token_version,
+      "iss" => "template_app",
+      "exp" => DateTime.utc_now() |> DateTime.add(-60) |> DateTime.to_unix()
+    }
+
+    {:ok, token, _claims} = Joken.encode_and_sign(claims, signer)
+    token
+  end
+
   # ---------------------------------------------------------------------------
   # Login
   # ---------------------------------------------------------------------------
@@ -176,6 +194,37 @@ defmodule TemplateAppWeb.AuthControllerTest do
       assert %{"access_token" => _} = json_response(second_conn, 200)
     end
 
+    test "only one concurrent request can rotate a refresh token", %{conn: _conn} do
+      user = create_user()
+      token = create_refresh_token(user)
+
+      responses =
+        [1, 2]
+        |> Enum.map(fn _ ->
+          Task.async(fn -> post(with_refresh_cookie(token.id), ~p"/auth/refresh") end)
+        end)
+        |> Task.await_many(15_000)
+
+      assert Enum.count(responses, &(&1.status == 200)) == 1
+      assert Enum.count(responses, &(&1.status == 401)) == 1
+
+      assert {:ok, nil} =
+               RefreshToken
+               |> Ash.Query.filter(id == ^token.id)
+               |> Ash.read_one()
+    end
+
+    test "rejects replay of the old token after sequential rotation", %{conn: _conn} do
+      user = create_user()
+      token = create_refresh_token(user)
+
+      first_conn = post(with_refresh_cookie(token.id), ~p"/auth/refresh")
+      assert %{"access_token" => _} = json_response(first_conn, 200)
+
+      replay_conn = post(with_refresh_cookie(token.id), ~p"/auth/refresh")
+      assert %{"error" => "invalid_refresh_token"} = json_response(replay_conn, 401)
+    end
+
     test "returns 401 when no refresh cookie is present", %{conn: conn} do
       conn = post(conn, ~p"/auth/refresh")
 
@@ -222,6 +271,13 @@ defmodule TemplateAppWeb.AuthControllerTest do
 
       assert %{"error" => "token_revoked"} = json_response(conn, 401)
       assert conn.resp_cookies[@refresh_cookie].max_age == 0
+
+      assert {:ok, [remaining]} =
+               RefreshToken
+               |> Ash.Query.filter(user_id == ^user.id)
+               |> Ash.read()
+
+      assert remaining.id == token.id
     end
   end
 
@@ -256,6 +312,39 @@ defmodule TemplateAppWeb.AuthControllerTest do
 
       assert %{"message" => "Already logged out"} = json_response(conn, 200)
     end
+
+    test "revokes the cookie session when the access token is expired", %{conn: _conn} do
+      user = create_user()
+      token = create_refresh_token(user)
+
+      conn =
+        token.id
+        |> with_refresh_cookie()
+        |> put_req_header("authorization", "Bearer #{expired_access_token(user)}")
+        |> post(~p"/auth/logout")
+
+      assert %{"message" => "Logged out successfully"} = json_response(conn, 200)
+      assert conn.resp_cookies[@refresh_cookie].max_age == 0
+
+      assert {:ok, nil} =
+               RefreshToken
+               |> Ash.Query.filter(id == ^token.id)
+               |> Ash.read_one()
+    end
+
+    test "is idempotent for malformed and already-revoked cookies", %{conn: _conn} do
+      user = create_user()
+      token = create_refresh_token(user)
+
+      first_conn = post(with_refresh_cookie(token.id), ~p"/auth/logout")
+      assert %{"message" => "Logged out successfully"} = json_response(first_conn, 200)
+
+      second_conn = post(with_refresh_cookie(token.id), ~p"/auth/logout")
+      assert %{"message" => "Already logged out"} = json_response(second_conn, 200)
+
+      malformed_conn = post(with_refresh_cookie("not-a-uuid"), ~p"/auth/logout")
+      assert %{"message" => "Already logged out"} = json_response(malformed_conn, 200)
+    end
   end
 
   # ---------------------------------------------------------------------------
@@ -266,6 +355,7 @@ defmodule TemplateAppWeb.AuthControllerTest do
     test "invalidates existing refresh tokens for the user", %{conn: _conn} do
       user = create_user()
       token = create_refresh_token(user)
+      second_token = create_refresh_token(user)
       access_token = access_token_for(user)
 
       # Logout all devices
@@ -279,6 +369,9 @@ defmodule TemplateAppWeb.AuthControllerTest do
       # The pre-existing refresh token should now be rejected
       refresh_conn = post(with_refresh_cookie(token.id), ~p"/auth/refresh")
       assert %{"error" => "token_revoked"} = json_response(refresh_conn, 401)
+
+      second_refresh_conn = post(with_refresh_cookie(second_token.id), ~p"/auth/refresh")
+      assert %{"error" => "token_revoked"} = json_response(second_refresh_conn, 401)
     end
   end
 
