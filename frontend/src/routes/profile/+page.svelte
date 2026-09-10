@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { currentUser } from '$lib/features/accounts';
 	import { updateUsername, ApiError } from '$lib/features/accounts';
+	import { getSessionGeneration, isCurrentSession } from '$lib/features/accounts';
 	import { notifications } from '$lib/shared/stores';
 	import FormAlert from '$lib/shared/components/FormAlert.svelte';
 	import { resolve } from '$app/paths';
@@ -24,9 +25,12 @@
 		error = '';
 		success = false;
 		loading = true;
+		const generation = getSessionGeneration();
+		const userId = $currentUser.id;
 
 		try {
-			const updatedUser = await updateUsername($currentUser.id, username);
+			const updatedUser = await updateUsername(userId, username);
+			if (!isCurrentSession(generation, userId)) return;
 			currentUser.set(updatedUser);
 			success = true;
 			notifications.success('Username updated successfully');

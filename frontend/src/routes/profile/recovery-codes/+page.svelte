@@ -1,17 +1,19 @@
 <script lang="ts">
 	import { currentUser } from '$lib/features/accounts';
 	import { generateRecoveryCodes, ApiError } from '$lib/features/accounts';
+	import { getSessionGeneration, isCurrentSession } from '$lib/features/accounts';
 	import { notifications } from '$lib/shared/stores';
 	import FormAlert from '$lib/shared/components/FormAlert.svelte';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
-	import { onMount } from 'svelte';
+	import { onDestroy, onMount } from 'svelte';
 
 	let recoveryCodes = $state<string[]>([]);
 	let loading = $state(false);
 	let error = $state('');
 	let showCodes = $state(false);
 	let copied = $state(false);
+	let copyResetTimer: ReturnType<typeof setTimeout> | undefined;
 
 	onMount(() => {
 		if ($currentUser?.isGuest) {
@@ -20,15 +22,22 @@
 		}
 	});
 
+	onDestroy(() => {
+		if (copyResetTimer) clearTimeout(copyResetTimer);
+	});
+
 	async function handleGenerateCodes() {
 		if (!$currentUser) return;
 
 		error = '';
 		loading = true;
 		copied = false;
+		const generation = getSessionGeneration();
+		const userId = $currentUser.id;
 
 		try {
-			const result = await generateRecoveryCodes($currentUser.id);
+			const result = await generateRecoveryCodes(userId);
+			if (!isCurrentSession(generation, userId)) return;
 			recoveryCodes = result.recoveryCodes;
 			showCodes = true;
 			currentUser.set(result);
@@ -47,7 +56,8 @@
 			copied = true;
 			notifications.success('Recovery codes copied to clipboard');
 			// Reset copied state after 3 seconds
-			setTimeout(() => {
+			if (copyResetTimer) clearTimeout(copyResetTimer);
+			copyResetTimer = setTimeout(() => {
 				copied = false;
 			}, 3000);
 		} catch {

@@ -10,7 +10,7 @@ import { accessToken } from '$lib/shared/auth/token';
 /**
  * API base URL - defaults to same origin, can be overridden via env var
  */
-export const API_URL = import.meta.env.VITE_API_URL || '';
+export const API_URL = (import.meta.env.VITE_API_URL ?? '').replace(/\/+$/, '');
 
 /**
  * Get auth headers with the current access token
@@ -63,7 +63,33 @@ export type ApiRequestOptions = {
 	readonly headers?: Record<string, string>;
 	readonly errorMessage?: string;
 	readonly fetchFn?: FetchLike;
+	readonly signal?: AbortSignal;
+	readonly timeoutMs?: number;
 };
+
+function requestSignal(opts?: ApiRequestOptions): {
+	signal?: AbortSignal;
+	cleanup: () => void;
+} {
+	if (opts?.timeoutMs === undefined) return { signal: opts?.signal, cleanup: () => {} };
+
+	const controller = new AbortController();
+	const timeout = setTimeout(() => controller.abort(), opts.timeoutMs);
+	const abort = () => controller.abort();
+
+	if (opts.signal) {
+		if (opts.signal.aborted) controller.abort();
+		else opts.signal.addEventListener('abort', abort, { once: true });
+	}
+
+	return {
+		signal: controller.signal,
+		cleanup: () => {
+			clearTimeout(timeout);
+			opts.signal?.removeEventListener('abort', abort);
+		}
+	};
+}
 
 async function request<T>(
 	method: string,
@@ -72,15 +98,23 @@ async function request<T>(
 	opts?: ApiRequestOptions
 ): Promise<T> {
 	const fetchFn = opts?.fetchFn ?? fetch;
-	const response = await fetchFn(`${API_URL}${path}`, {
-		method,
-		headers: {
-			...(body !== undefined ? { 'Content-Type': 'application/json' } : {}),
-			...opts?.headers
-		},
-		...(body !== undefined ? { body: JSON.stringify(body) } : {}),
-		credentials: 'include'
-	});
+	const { signal, cleanup } = requestSignal(opts);
+	let response: Response;
+
+	try {
+		response = await fetchFn(`${API_URL}${path}`, {
+			method,
+			headers: {
+				...(body !== undefined ? { 'Content-Type': 'application/json' } : {}),
+				...opts?.headers
+			},
+			...(body !== undefined ? { body: JSON.stringify(body) } : {}),
+			credentials: 'include',
+			signal
+		});
+	} finally {
+		cleanup();
+	}
 
 	if (!response.ok) {
 		await throwApiError(response, opts?.errorMessage ?? 'Request failed');

@@ -1,7 +1,7 @@
 <script lang="ts">
 	import '../app.css';
 	import favicon from '$lib/shared/assets/favicon.svg';
-	import { initAuth, authLoading, currentUser, logout } from '$lib/features/accounts';
+	import { initAuth, authLoading, authError, currentUser, logout } from '$lib/features/accounts';
 	import { onMount } from 'svelte';
 	import Notifications from '$lib/shared/components/Notifications.svelte';
 	import { notifications } from '$lib/shared/stores';
@@ -11,8 +11,12 @@
 	let { children } = $props();
 
 	onMount(() => {
-		initAuth();
+		void initAuth();
 	});
+
+	async function handleRetryAuth() {
+		await initAuth();
+	}
 
 	async function handleLogout() {
 		try {
@@ -34,6 +38,17 @@
 		<div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
 	</div>
 {:else}
+	{#if $authError}
+		<div class="bg-yellow-50 border-b border-yellow-200 px-4 py-3 text-yellow-800" role="alert">
+			<div class="max-w-7xl mx-auto flex items-center justify-between gap-4">
+				<span>{$authError}</span>
+				<button type="button" class="font-medium underline" onclick={handleRetryAuth}
+					>Try again</button
+				>
+			</div>
+		</div>
+	{/if}
+
 	<nav class="bg-white shadow-sm border-b border-gray-200">
 		<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
 			<div class="flex justify-between h-16">

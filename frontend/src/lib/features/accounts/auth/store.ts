@@ -13,9 +13,16 @@ import type {
 import { toUser } from '$lib/features/accounts/types';
 import { API_URL, ApiError, throwApiError, api } from '$lib/shared/api/client';
 import { accessToken } from '$lib/shared/auth/token';
-import { authenticatedFetch } from './refresh';
+import { authenticatedFetch, ensureValidToken } from './refresh';
 
 export { accessToken };
+
+export class StaleSessionError extends Error {
+	constructor() {
+		super('Session changed while the request was in flight');
+		this.name = 'StaleSessionError';
+	}
+}
 
 /**
  * Current user store
@@ -28,9 +35,34 @@ export const currentUser = writable<User | null>(null);
 export const authLoading = writable<boolean>(true);
 
 /**
+ * Recoverable startup error, kept separate from authentication failure.
+ */
+export const authError = writable<string | null>(null);
+
+let sessionGeneration = 0;
+let initPromise: Promise<void> | null = null;
+
+export function getSessionGeneration(): number {
+	return sessionGeneration;
+}
+
+export function isCurrentSession(generation: number, userId?: string): boolean {
+	if (generation !== sessionGeneration) return false;
+	return userId === undefined || get(currentUser)?.id === userId;
+}
+
+const logoutChannel =
+	typeof BroadcastChannel === 'undefined' ? null : new BroadcastChannel('template-app-auth');
+
+logoutChannel?.addEventListener('message', (event: MessageEvent<{ type?: string }>) => {
+	if (event.data?.type === 'logout') clearAuth(false);
+});
+
+/**
  * Login with username and password
  */
 export async function login(username: string, password: string): Promise<User> {
+	const generation = beginSession();
 	const data = await api.post<AuthResponse>(
 		'/auth/login',
 		{ username, password },
@@ -38,6 +70,7 @@ export async function login(username: string, password: string): Promise<User> {
 			errorMessage: 'Login failed'
 		}
 	);
+	if (!isCurrentSession(generation)) throw new StaleSessionError();
 	accessToken.set(data.access_token);
 	const user = toUser(data.user);
 	currentUser.set(user);
@@ -52,6 +85,7 @@ export async function register(
 	password: string,
 	passwordConfirmation: string
 ): Promise<User> {
+	const generation = beginSession();
 	const data = await api.post<AuthResponse>(
 		'/auth/register',
 		{
@@ -61,6 +95,7 @@ export async function register(
 		},
 		{ errorMessage: 'Registration failed' }
 	);
+	if (!isCurrentSession(generation)) throw new StaleSessionError();
 	accessToken.set(data.access_token);
 	const user = toUser(data.user);
 	currentUser.set(user);
@@ -90,19 +125,37 @@ export async function resetPassword(
 /**
  * Refresh the access token using the refresh token cookie
  */
-export async function refreshAccessToken(): Promise<void> {
-	const response = await fetch(`${API_URL}/auth/refresh`, {
-		method: 'POST',
-		credentials: 'include' // Send refresh token cookie
-	});
+export async function refreshAccessToken(
+	expectedGeneration = getSessionGeneration()
+): Promise<void> {
+	if (!isCurrentSession(expectedGeneration)) throw new StaleSessionError();
 
-	if (!response.ok) {
-		clearAuth();
-		await throwApiError(response, 'Session expired');
+	const controller = new AbortController();
+	const unregister = registerRefreshController(expectedGeneration, controller);
+
+	try {
+		const response = await fetch(`${API_URL}/auth/refresh`, {
+			method: 'POST',
+			credentials: 'include',
+			signal: controller.signal
+		});
+
+		if (!isCurrentSession(expectedGeneration)) throw new StaleSessionError();
+
+		if (!response.ok) {
+			clearAuth();
+			await throwApiError(response, 'Session expired');
+		}
+
+		const data: RefreshResponse = await response.json();
+		if (!isCurrentSession(expectedGeneration)) throw new StaleSessionError();
+		accessToken.set(data.access_token);
+	} catch (error) {
+		if (!isCurrentSession(expectedGeneration)) throw new StaleSessionError();
+		throw error;
+	} finally {
+		unregister();
 	}
-
-	const data: RefreshResponse = await response.json();
-	accessToken.set(data.access_token);
 }
 
 /**
@@ -110,16 +163,16 @@ export async function refreshAccessToken(): Promise<void> {
  */
 export async function logout(): Promise<void> {
 	const token = get(accessToken);
+	clearAuth();
 
-	try {
-		await fetch(`${API_URL}/auth/logout`, {
-			method: 'POST',
-			headers: token ? { Authorization: `Bearer ${token}` } : {},
-			credentials: 'include'
-		});
-	} finally {
-		// Always clear local state, even if server request fails
-		clearAuth();
+	const response = await fetch(`${API_URL}/auth/logout`, {
+		method: 'POST',
+		headers: token ? { Authorization: `Bearer ${token}` } : {},
+		credentials: 'include'
+	});
+
+	if (!response.ok) {
+		await throwApiError(response, 'Logout failed');
 	}
 }
 
@@ -134,14 +187,15 @@ export async function logoutAll(): Promise<void> {
 		return;
 	}
 
-	try {
-		await fetch(`${API_URL}/auth/logout_all`, {
-			method: 'POST',
-			headers: { Authorization: `Bearer ${token}` },
-			credentials: 'include'
-		});
-	} finally {
-		clearAuth();
+	clearAuth();
+	const response = await fetch(`${API_URL}/auth/logout_all`, {
+		method: 'POST',
+		headers: { Authorization: `Bearer ${token}` },
+		credentials: 'include'
+	});
+
+	if (!response.ok) {
+		await throwApiError(response, 'Logout failed');
 	}
 }
 
@@ -149,7 +203,9 @@ export async function logoutAll(): Promise<void> {
  * Get current user info from server.
  * Uses authenticatedFetch so a 401 triggers a token refresh automatically.
  */
-export async function fetchCurrentUser(): Promise<User | null> {
+export async function fetchCurrentUser(
+	expectedGeneration = getSessionGeneration()
+): Promise<User | null> {
 	const token = get(accessToken);
 	if (!token) return null;
 
@@ -157,42 +213,89 @@ export async function fetchCurrentUser(): Promise<User | null> {
 		const data = await api.get<UserResponse>('/auth/me', {
 			fetchFn: authenticatedFetch
 		});
+		if (!isCurrentSession(expectedGeneration)) return null;
 		const user = toUser(data.user);
 		currentUser.set(user);
 		return user;
 	} catch (e) {
-		if (e instanceof ApiError && e.isAuthError()) return null;
-		if (e instanceof TypeError) {
-			console.error('fetchCurrentUser: network error', e);
+		if (e instanceof StaleSessionError) return null;
+		if (e instanceof ApiError && e.isAuthError()) {
+			if (isCurrentSession(expectedGeneration)) clearAuth();
 			return null;
 		}
-		console.error('fetchCurrentUser:', e);
-		return null;
+		throw e;
 	}
 }
 
 /**
  * Initialize auth state - try to refresh token on app load
  */
-export async function initAuth(): Promise<void> {
-	authLoading.set(true);
+export function initAuth(): Promise<void> {
+	if (initPromise) return initPromise;
 
-	try {
-		// Try to refresh using the HttpOnly cookie
-		await refreshAccessToken();
-		await fetchCurrentUser();
-	} catch {
-		// No valid session, that's fine
-		clearAuth();
-	} finally {
-		authLoading.set(false);
-	}
+	const expectedGeneration = getSessionGeneration();
+	authLoading.set(true);
+	authError.set(null);
+
+	initPromise = (async () => {
+		try {
+			if (!get(accessToken)) await ensureValidToken(expectedGeneration);
+			await fetchCurrentUser(expectedGeneration);
+		} catch (error) {
+			if (error instanceof StaleSessionError) return;
+			if (error instanceof TypeError) {
+				authError.set('Unable to check your session. Check your connection and try again.');
+				return;
+			}
+			if (error instanceof ApiError && error.isAuthError()) return;
+			authError.set('Unable to check your session. Try again.');
+		} finally {
+			authLoading.set(false);
+		}
+	})();
+
+	return initPromise.finally(() => {
+		initPromise = null;
+	});
 }
 
 /**
  * Clear all auth state
  */
-export function clearAuth(): void {
+export function clearAuth(broadcast = true): void {
+	cancelRefreshes();
+	sessionGeneration += 1;
 	accessToken.set(null);
 	currentUser.set(null);
+	authError.set(null);
+	if (broadcast) logoutChannel?.postMessage({ type: 'logout' });
+}
+
+function beginSession(): number {
+	cancelRefreshes();
+	sessionGeneration += 1;
+	accessToken.set(null);
+	currentUser.set(null);
+	authError.set(null);
+	return sessionGeneration;
+}
+
+const refreshControllers = new Map<number, Set<AbortController>>();
+
+function registerRefreshController(generation: number, controller: AbortController): () => void {
+	const controllers = refreshControllers.get(generation) ?? new Set<AbortController>();
+	controllers.add(controller);
+	refreshControllers.set(generation, controllers);
+
+	return () => {
+		controllers.delete(controller);
+		if (controllers.size === 0) refreshControllers.delete(generation);
+	};
+}
+
+export function cancelRefreshes(): void {
+	for (const controllers of refreshControllers.values()) {
+		for (const controller of controllers) controller.abort();
+	}
+	refreshControllers.clear();
 }

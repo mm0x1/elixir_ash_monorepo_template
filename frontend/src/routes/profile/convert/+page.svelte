@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { currentUser } from '$lib/features/accounts';
 	import { convertToRegistered, ApiError } from '$lib/features/accounts';
+	import { getSessionGeneration, isCurrentSession } from '$lib/features/accounts';
 	import { notifications } from '$lib/shared/stores';
 	import FormAlert from '$lib/shared/components/FormAlert.svelte';
 	import ButtonSpinner from '$lib/shared/components/ButtonSpinner.svelte';
@@ -38,14 +39,17 @@
 		}
 
 		loading = true;
+		const generation = getSessionGeneration();
+		const userId = $currentUser.id;
 
 		try {
 			const updatedUser = await convertToRegistered(
-				$currentUser.id,
+				userId,
 				username,
 				password,
 				passwordConfirmation
 			);
+			if (!isCurrentSession(generation, userId)) return;
 			currentUser.set(updatedUser);
 			notifications.success(
 				'Account converted successfully! You can now log in with your password.'
