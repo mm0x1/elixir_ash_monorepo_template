@@ -20,6 +20,7 @@ defmodule TemplateApp.Accounts.Resources.User do
 
   alias TemplateApp.Accounts.Validations.{
     UsernameChangeRateLimit,
+    ValidatePasswordPolicy,
     ValidateRecoveryCode
   }
 
@@ -74,7 +75,6 @@ defmodule TemplateApp.Accounts.Resources.User do
 
       argument :password, :string,
         allow_nil?: false,
-        constraints: [min_length: 8],
         sensitive?: true
 
       argument :password_confirmation, :string, allow_nil?: false, sensitive?: true
@@ -84,6 +84,7 @@ defmodule TemplateApp.Accounts.Resources.User do
       change AshAuthentication.GenerateTokenChange
 
       validate AshAuthentication.Strategy.Password.PasswordConfirmationValidation
+      validate {ValidatePasswordPolicy, [argument: :password]}
 
       metadata :token, :string, allow_nil?: false
     end
@@ -107,22 +108,6 @@ defmodule TemplateApp.Accounts.Resources.User do
       metadata :plain_recovery_codes, {:array, :string}, allow_nil?: false
     end
 
-    # Unauthenticated: a logged-out user requests a password reset by username.
-    # Reuses the recovery-code batch as the reset mechanism; the plaintext codes
-    # are returned once via metadata and only their Argon2 hashes are persisted.
-    update :request_password_reset do
-      require_atomic? false
-      accept []
-
-      validate attribute_does_not_equal(:is_anonymous, true) do
-        message "anonymous users cannot reset password"
-      end
-
-      change GenerateRecoveryCodes
-
-      metadata :plain_recovery_codes, {:array, :string}, allow_nil?: false
-    end
-
     update :reset_password_with_recovery_code do
       require_atomic? false
 
@@ -130,6 +115,7 @@ defmodule TemplateApp.Accounts.Resources.User do
       argument :new_password, :string, allow_nil?: false, sensitive?: true
 
       validate ValidateRecoveryCode
+      validate {ValidatePasswordPolicy, [argument: :new_password]}
       change ConsumeRecoveryCodeAndResetPassword
     end
 
@@ -140,7 +126,6 @@ defmodule TemplateApp.Accounts.Resources.User do
 
       argument :password, :string,
         allow_nil?: false,
-        constraints: [min_length: 8],
         sensitive?: true
 
       argument :password_confirmation, :string, allow_nil?: false, sensitive?: true
@@ -149,6 +134,7 @@ defmodule TemplateApp.Accounts.Resources.User do
         message "only anonymous users can convert to registered"
       end
 
+      validate {ValidatePasswordPolicy, [argument: :password]}
       change ConvertToRegistered
     end
 
@@ -181,7 +167,6 @@ defmodule TemplateApp.Accounts.Resources.User do
     policy action_type(:read), authorize_if: always()
     policy action(:register_with_password), authorize_if: always()
     policy action(:create_anonymous), authorize_if: always()
-    policy action(:request_password_reset), authorize_if: always()
     policy action(:reset_password_with_recovery_code), authorize_if: always()
 
     policy action([

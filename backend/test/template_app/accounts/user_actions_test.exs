@@ -36,6 +36,13 @@ defmodule TemplateApp.Accounts.UserActionsTest do
                Accounts.create_user("shortpw", "short", "short")
     end
 
+    test "fails when password is longer than 128 characters" do
+      password = String.duplicate("a", 129)
+
+      assert {:error, %Ash.Error.Invalid{}} =
+               Accounts.create_user("longpw", password, password)
+    end
+
     test "fails when passwords do not match" do
       assert {:error, %Ash.Error.Invalid{}} =
                Accounts.create_user("mismatch", "password123", "different123")
@@ -118,6 +125,24 @@ defmodule TemplateApp.Accounts.UserActionsTest do
       assert {:error, _} =
                Accounts.reset_password_with_recovery_code(user, "WRONGCODE00", "newpassword123")
     end
+
+    test "fails when the new password is shorter than 8 characters", %{
+      user: user,
+      plain_codes: [code | _]
+    } do
+      assert {:error, %Ash.Error.Invalid{}} =
+               Accounts.reset_password_with_recovery_code(user, code, "short")
+    end
+
+    test "fails when the new password is longer than 128 characters", %{
+      user: user,
+      plain_codes: [code | _]
+    } do
+      password = String.duplicate("a", 129)
+
+      assert {:error, %Ash.Error.Invalid{}} =
+               Accounts.reset_password_with_recovery_code(user, code, password)
+    end
   end
 
   # ---------------------------------------------------------------------------
@@ -152,6 +177,20 @@ defmodule TemplateApp.Accounts.UserActionsTest do
                  "password123",
                  "password123",
                  actor: user
+               )
+    end
+
+    test "uses the shared password policy" do
+      anon = create_anonymous()
+      password = String.duplicate("a", 129)
+
+      assert {:error, %Ash.Error.Invalid{}} =
+               Accounts.convert_to_registered(
+                 anon,
+                 "longpassword",
+                 password,
+                 password,
+                 actor: anon
                )
     end
   end

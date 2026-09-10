@@ -68,23 +68,6 @@ export async function register(
 }
 
 /**
- * Request a password reset by username.
- *
- * Returns the freshly generated recovery codes (shown to the user once — this
- * template sends no email). Does not change local auth state.
- */
-export async function requestPasswordReset(username: string): Promise<string[]> {
-	const data = await api.post<{ recovery_codes: string[] }>(
-		'/auth/request-reset',
-		{ username },
-		{
-			errorMessage: 'Could not request a password reset'
-		}
-	);
-	return data.recovery_codes;
-}
-
-/**
  * Reset a password using a recovery code. Does not change local auth state;
  * the user logs in afterwards with the new password.
  */

@@ -4,7 +4,6 @@ export {
 	authLoading,
 	login,
 	register,
-	requestPasswordReset,
 	resetPassword,
 	logout,
 	logoutAll,

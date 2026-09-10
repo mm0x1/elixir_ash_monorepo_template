@@ -39,9 +39,6 @@ defmodule TemplateApp.Accounts do
       define :generate_recovery_codes,
         action: :generate_recovery_codes
 
-      define :request_password_reset,
-        action: :request_password_reset
-
       define :reset_password_with_recovery_code,
         args: [:recovery_code, :new_password],
         action: :reset_password_with_recovery_code

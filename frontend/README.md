@@ -34,6 +34,13 @@ port. The local server loads the repository-root environment and proxies
 `/auth`, `/account`, and `/health` to Phoenix. Leave `VITE_API_URL` empty for
 local development; set it for a separately hosted or production frontend.
 
+## Password Recovery
+
+Recovery codes are generated while signed in from the account recovery page and
+are shown only once. The password-reset form requires a username, a previously
+stored recovery code, and a new password. The application never sends email; if
+all recovery codes are lost, there is no self-service password-reset path.
+
 ## Project Structure
 
 ```text

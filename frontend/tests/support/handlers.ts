@@ -31,24 +31,25 @@ export const handlers = [
 		);
 	}),
 
-	http.post('*/auth/request-reset', async ({ request }) => {
-		const body = (await request.json()) as { username?: string };
+	http.post('*/auth/reset-password', async ({ request }) => {
+		const body = (await request.json()) as {
+			username?: string;
+			recovery_code?: string;
+			new_password?: string;
+		};
 
-		if (!body.username) {
+		if (!body.username || !body.recovery_code || !body.new_password) {
 			return HttpResponse.json(
-				{ error: 'bad_request', message: 'Username is required' },
 				{
-					status: 400
-				}
+					error: 'bad_request',
+					message: 'Username, recovery code, and new password are required'
+				},
+				{ status: 400 }
 			);
 		}
 
-		return HttpResponse.json({ recovery_codes: recoveryCodes });
+		return HttpResponse.json({ message: 'Password reset successfully' });
 	}),
-
-	http.post('*/auth/reset-password', () =>
-		HttpResponse.json({ message: 'Password reset successfully' })
-	),
 
 	http.post('*/account/recovery-codes', () =>
 		HttpResponse.json({

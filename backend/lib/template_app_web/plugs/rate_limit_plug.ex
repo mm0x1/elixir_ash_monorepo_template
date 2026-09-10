@@ -13,7 +13,6 @@ defmodule TemplateAppWeb.Plugs.RateLimitPlug do
   @limits %{
     login: {5, :timer.minutes(1)},
     register: {3, :timer.minutes(1)},
-    request_reset: {3, :timer.hours(1)},
     reset_password: {5, :timer.hours(1)}
   }
 

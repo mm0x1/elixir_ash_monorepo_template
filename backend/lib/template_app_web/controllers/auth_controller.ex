@@ -26,10 +26,9 @@ defmodule TemplateAppWeb.AuthController do
   require Ash.Query
   require Logger
 
-  plug RateLimitPlug, [action: :login] when action in [:login]
-  plug RateLimitPlug, [action: :register] when action in [:register]
-  plug RateLimitPlug, [action: :request_reset] when action in [:request_reset]
-  plug RateLimitPlug, [action: :reset_password] when action in [:reset_password]
+  plug(RateLimitPlug, [action: :login] when action in [:login])
+  plug(RateLimitPlug, [action: :register] when action in [:register])
+  plug(RateLimitPlug, [action: :reset_password] when action in [:reset_password])
 
   @refresh_token_cookie "_template_app_refresh"
   @refresh_token_max_age 7 * 24 * 60 * 60
@@ -194,28 +193,6 @@ defmodule TemplateAppWeb.AuthController do
     ApiResponse.success(conn, %{user: serialize_user(user)})
   end
 
-  def request_reset(conn, %{"username" => username}) do
-    case fetch_user_by_username(username) do
-      {:ok, user} ->
-        case Accounts.request_password_reset(user) do
-          {:ok, updated} ->
-            ApiResponse.success(conn, %{
-              recovery_codes: updated.__metadata__[:plain_recovery_codes]
-            })
-
-          {:error, error} ->
-            ApiResponse.validation_error(conn, error, "Could not generate reset codes")
-        end
-
-      {:error, :not_found} ->
-        ApiResponse.success(conn, %{recovery_codes: fake_recovery_codes()})
-    end
-  end
-
-  def request_reset(conn, _params) do
-    ApiResponse.bad_request(conn, "Username is required")
-  end
-
   def reset_password(conn, %{
         "username" => username,
         "recovery_code" => recovery_code,
@@ -227,8 +204,8 @@ defmodule TemplateAppWeb.AuthController do
           {:ok, _updated} ->
             ApiResponse.message(conn, "Password reset successfully")
 
-          {:error, error} ->
-            ApiResponse.validation_error(conn, error, "Password reset failed")
+          {:error, _error} ->
+            ApiResponse.validation_error_static(conn, "Invalid recovery code")
         end
 
       {:error, :not_found} ->
@@ -358,18 +335,6 @@ defmodule TemplateAppWeb.AuthController do
 
   defp delete_refresh_cookie(conn) do
     delete_resp_cookie(conn, @refresh_token_cookie, path: "/")
-  end
-
-  defp fake_recovery_codes do
-    count = TemplateApp.Config.recovery_code_count()
-
-    for _ <- 1..count do
-      8
-      |> :crypto.strong_rand_bytes()
-      |> Base.encode32(padding: false)
-      |> binary_part(0, 10)
-      |> String.upcase()
-    end
   end
 
   defp secure_cookies? do

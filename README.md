@@ -6,7 +6,7 @@ Phoenix/Ash REST API backend + SvelteKit SPA frontend.
 
 - **Backend**: Phoenix 1.8, Ash 3.x, PostgreSQL — plain REST/JSON endpoints
 - **Frontend**: SvelteKit 2, Svelte 5, TypeScript, Tailwind CSS 4
-- **Auth**: username/password (Argon2) with hybrid tokens — JWT access tokens (15 min) + DB-backed refresh tokens (7 days, HttpOnly cookie); password reset via single-use, expiring recovery codes (no email)
+- **Auth**: username/password (Argon2) with hybrid tokens — JWT access tokens (15 min) + DB-backed refresh tokens (7 days, HttpOnly cookie); password reset via pre-generated, single-use, expiring recovery codes (no email)
 
 ## Local development
 
@@ -106,14 +106,14 @@ that use the legacy MCP configuration shape. Backend package rules are configure
 
 This template is designed for side projects and prototyping. Be aware of these trade-offs:
 
-- **Password reset privacy** — `/auth/request-reset` returns the same recovery-code response shape
-  for unknown usernames by returning fake codes. Rate limiting mitigates abuse, but review timing and
-  other side channels before treating this as full enumeration protection.
+- **Password recovery** — signed-in users generate recovery codes from their account page and must
+  store them. A logged-out reset consumes one previously generated code. There is no email delivery,
+  username-only code request, or self-service recovery path after all codes are lost.
 - **Refresh-token rotation** — refresh destroys the old database token and creates a replacement.
   Token reuse detection beyond old-token invalidation is not implemented; a stolen current token
   remains usable until it is rotated, invalidated, or expires after 7 days.
 - **Rate limiting** — auth endpoints are rate-limited per IP via Hammer (login: 5/min, register:
-  3/min, request reset: 3/hr, reset password: 5/hr). Adjust limits in
+  3/min, reset password: 5/hr). Adjust limits in
   `TemplateAppWeb.Plugs.RateLimitPlug`.
 - **HTTPS** — set `FORCE_SSL=true` in production to enable redirect-to-HTTPS and HSTS. The
   endpoint's CSP and HSTS headers activate automatically when this is set.
