@@ -55,4 +55,24 @@ defmodule TemplateAppWeb.ConnCase do
 
     Plug.Conn.put_req_header(conn, "x-csrf-token", csrf_token)
   end
+
+  @doc """
+  Dispatches a JSON request through the real endpoint boundary.
+
+  Phoenix.ConnTest encodes map parameters as multipart data by default, while
+  the REST API deliberately accepts JSON for credential-bearing mutations.
+  """
+  def json_request(conn, method, path, params) do
+    conn
+    |> Plug.Conn.put_req_header("content-type", "application/json")
+    |> Phoenix.ConnTest.dispatch(
+      TemplateAppWeb.Endpoint,
+      method,
+      path,
+      Jason.encode!(params)
+    )
+  end
+
+  def json_post(conn, path, params), do: json_request(conn, :post, path, params)
+  def json_patch(conn, path, params), do: json_request(conn, :patch, path, params)
 end

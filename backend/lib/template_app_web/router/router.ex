@@ -4,6 +4,7 @@ defmodule TemplateAppWeb.Router do
 
   alias TemplateAppWeb.Plugs.EnsureAuthenticatedPlug
   alias TemplateAppWeb.Plugs.EnsureAdminPlug
+  alias TemplateAppWeb.Plugs.RequireJsonApi
   alias TemplateAppWeb.Plugs.ValidateAccessToken
   alias TemplateAppWeb.Helpers.ConnHelpers
 
@@ -43,7 +44,7 @@ defmodule TemplateAppWeb.Router do
   pipeline :api do
     plug(:accepts, ["json"])
     plug(:fetch_cookies)
-    plug(CORSPlug)
+    plug(RequireJsonApi)
   end
 
   # Token-based authentication pipeline

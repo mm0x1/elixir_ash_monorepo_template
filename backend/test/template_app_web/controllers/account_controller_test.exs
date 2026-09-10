@@ -34,7 +34,7 @@ defmodule TemplateAppWeb.AccountControllerTest do
       conn =
         conn
         |> authenticate(user)
-        |> patch(~p"/account/username", %{username: "newname"})
+        |> json_patch(~p"/account/username", %{username: "newname"})
 
       assert %{"user" => returned} = json_response(conn, 200)
       assert returned["username"] == "newname"
@@ -46,20 +46,20 @@ defmodule TemplateAppWeb.AccountControllerTest do
       first =
         conn
         |> authenticate(user)
-        |> patch(~p"/account/username", %{username: "firstchange"})
+        |> json_patch(~p"/account/username", %{username: "firstchange"})
 
       assert json_response(first, 200)
 
       second =
         build_conn()
         |> authenticate(user)
-        |> patch(~p"/account/username", %{username: "secondchange"})
+        |> json_patch(~p"/account/username", %{username: "secondchange"})
 
       assert %{"error" => "validation_error"} = json_response(second, 422)
     end
 
     test "returns 401 without a token", %{conn: conn} do
-      conn = patch(conn, ~p"/account/username", %{username: "whatever"})
+      conn = json_patch(conn, ~p"/account/username", %{username: "whatever"})
 
       assert %{"error" => "unauthorized"} = json_response(conn, 401)
     end
@@ -108,7 +108,7 @@ defmodule TemplateAppWeb.AccountControllerTest do
       conn =
         conn
         |> authenticate(anon)
-        |> post(~p"/account/convert", %{
+        |> json_post(~p"/account/convert", %{
           username: "nowregistered",
           password: "password123",
           password_confirmation: "password123"
@@ -125,7 +125,7 @@ defmodule TemplateAppWeb.AccountControllerTest do
       conn =
         conn
         |> authenticate(user)
-        |> post(~p"/account/convert", %{
+        |> json_post(~p"/account/convert", %{
           username: "alreadyregistered",
           password: "password123",
           password_confirmation: "password123"
@@ -136,7 +136,7 @@ defmodule TemplateAppWeb.AccountControllerTest do
 
     test "returns 401 without a token", %{conn: conn} do
       conn =
-        post(conn, ~p"/account/convert", %{
+        json_post(conn, ~p"/account/convert", %{
           username: "whatever",
           password: "password123",
           password_confirmation: "password123"

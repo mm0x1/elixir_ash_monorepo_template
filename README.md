@@ -30,6 +30,17 @@ http://127.0.0.1:4000. Vite proxies local `/auth`, `/account`, and `/health`
 requests to Phoenix, so `VITE_API_URL` is not needed locally. Override `PORT`
 or other local settings in `.env` when needed.
 
+The REST API accepts JSON for credential-bearing login, registration, reset, and
+account mutations. The endpoint rejects form-encoded credential requests and
+limits request bodies to 16 KiB. Browser preflights are handled before Phoenix
+route matching. Local development allows only `http://localhost:5173` and
+`http://127.0.0.1:5173`.
+
+Separately hosted frontend and backend deployments require `VITE_API_URL` and
+`FRONTEND_URL` to be configured as matching exact origins. `FRONTEND_URL` must
+not contain a path, wildcard, or trailing slash. Credentialed requests are not
+supported with a wildcard origin.
+
 Tilt waits for PostgreSQL, runs backend setup and seeds before Phoenix, installs
 frontend dependencies and hooks, and exposes readiness, logs, and links in its
 UI. Source edits continue to use Phoenix reload and Vite HMR; dependency,

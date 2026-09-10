@@ -87,8 +87,20 @@ if config_env() == :prod do
 
   # CORS configuration for production
   frontend_url =
-    System.get_env("FRONTEND_URL") ||
-      raise("Missing environment variable `FRONTEND_URL`!")
+    case System.get_env("FRONTEND_URL") do
+      nil ->
+        raise("Missing environment variable `FRONTEND_URL`!")
+
+      value ->
+        case URI.parse(value) do
+          %URI{scheme: scheme, host: host, path: path, query: nil, fragment: nil, userinfo: nil}
+          when scheme in ["http", "https"] and is_binary(host) and path in [nil, ""] ->
+            value
+
+          _ ->
+            raise "FRONTEND_URL must be one exact http(s) origin without a path"
+        end
+    end
 
   config :cors_plug,
     origin: [frontend_url],

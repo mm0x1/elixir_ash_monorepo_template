@@ -41,7 +41,7 @@ defmodule TemplateAppWeb.AuthResetControllerTest do
       {_user, [code | _]} = create_user_with_recovery_codes(%{username: "switcher"})
 
       reset_conn =
-        post(conn, ~p"/auth/reset-password", %{
+        json_post(conn, ~p"/auth/reset-password", %{
           username: "switcher",
           recovery_code: code,
           new_password: "brandnewpassword"
@@ -51,13 +51,19 @@ defmodule TemplateAppWeb.AuthResetControllerTest do
 
       # New password now authenticates.
       new_login =
-        post(build_conn(), ~p"/auth/login", %{username: "switcher", password: "brandnewpassword"})
+        json_post(build_conn(), ~p"/auth/login", %{
+          username: "switcher",
+          password: "brandnewpassword"
+        })
 
       assert %{"access_token" => _} = json_response(new_login, 200)
 
       # Old password no longer works.
       old_login =
-        post(build_conn(), ~p"/auth/login", %{username: "switcher", password: "password123"})
+        json_post(build_conn(), ~p"/auth/login", %{
+          username: "switcher",
+          password: "password123"
+        })
 
       assert %{"error" => "invalid_credentials"} = json_response(old_login, 401)
     end
@@ -70,7 +76,7 @@ defmodule TemplateAppWeb.AuthResetControllerTest do
       refresh_token = create_refresh_token(user)
 
       reset_conn =
-        post(conn, ~p"/auth/reset-password", %{
+        json_post(conn, ~p"/auth/reset-password", %{
           username: "sessionreset",
           recovery_code: code,
           new_password: "brandnewpassword"
@@ -96,7 +102,7 @@ defmodule TemplateAppWeb.AuthResetControllerTest do
       {_user, [code | _]} = create_user_with_recovery_codes(%{username: "reuser"})
 
       first =
-        post(conn, ~p"/auth/reset-password", %{
+        json_post(conn, ~p"/auth/reset-password", %{
           username: "reuser",
           recovery_code: code,
           new_password: "firstnewpassword"
@@ -105,7 +111,7 @@ defmodule TemplateAppWeb.AuthResetControllerTest do
       assert json_response(first, 200)
 
       second =
-        post(build_conn(), ~p"/auth/reset-password", %{
+        json_post(build_conn(), ~p"/auth/reset-password", %{
           username: "reuser",
           recovery_code: code,
           new_password: "secondnewpassword"
@@ -120,7 +126,7 @@ defmodule TemplateAppWeb.AuthResetControllerTest do
       expire_recovery_codes(user)
 
       conn =
-        post(conn, ~p"/auth/reset-password", %{
+        json_post(conn, ~p"/auth/reset-password", %{
           username: "expired",
           recovery_code: code,
           new_password: "newpassword123"
@@ -134,7 +140,7 @@ defmodule TemplateAppWeb.AuthResetControllerTest do
       user = create_anonymous()
 
       conn =
-        post(conn, ~p"/auth/reset-password", %{
+        json_post(conn, ~p"/auth/reset-password", %{
           username: to_string(user.username),
           recovery_code: "ABC123",
           new_password: "newpassword123"
@@ -148,7 +154,7 @@ defmodule TemplateAppWeb.AuthResetControllerTest do
       conn: conn
     } do
       conn =
-        post(conn, ~p"/auth/reset-password", %{
+        json_post(conn, ~p"/auth/reset-password", %{
           username: "ghost",
           recovery_code: "ABC123",
           new_password: "newpassword123"
@@ -159,7 +165,7 @@ defmodule TemplateAppWeb.AuthResetControllerTest do
     end
 
     test "returns 400 when params are missing", %{conn: conn} do
-      conn = post(conn, ~p"/auth/reset-password", %{username: "incomplete"})
+      conn = json_post(conn, ~p"/auth/reset-password", %{username: "incomplete"})
 
       assert %{"error" => "bad_request"} = json_response(conn, 400)
     end

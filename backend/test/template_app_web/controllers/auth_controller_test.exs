@@ -72,7 +72,7 @@ defmodule TemplateAppWeb.AuthControllerTest do
     test "returns access_token and sets refresh cookie with valid credentials", %{conn: conn} do
       create_user(%{username: "logintest", password: "password123"})
 
-      conn = post(conn, ~p"/auth/login", %{username: "logintest", password: "password123"})
+      conn = json_post(conn, ~p"/auth/login", %{username: "logintest", password: "password123"})
 
       assert %{"access_token" => token, "user" => user} = json_response(conn, 200)
       assert is_binary(token)
@@ -83,13 +83,14 @@ defmodule TemplateAppWeb.AuthControllerTest do
     test "returns 401 for wrong password", %{conn: conn} do
       create_user(%{username: "logintest2", password: "password123"})
 
-      conn = post(conn, ~p"/auth/login", %{username: "logintest2", password: "wrongpassword"})
+      conn =
+        json_post(conn, ~p"/auth/login", %{username: "logintest2", password: "wrongpassword"})
 
       assert %{"error" => "invalid_credentials"} = json_response(conn, 401)
     end
 
     test "returns 400 when params are missing", %{conn: conn} do
-      conn = post(conn, ~p"/auth/login", %{username: "onlyusername"})
+      conn = json_post(conn, ~p"/auth/login", %{username: "onlyusername"})
 
       assert %{"error" => "bad_request"} = json_response(conn, 400)
     end
@@ -102,7 +103,7 @@ defmodule TemplateAppWeb.AuthControllerTest do
   describe "POST /auth/register" do
     test "creates user and returns access_token with 201", %{conn: conn} do
       conn =
-        post(conn, ~p"/auth/register", %{
+        json_post(conn, ~p"/auth/register", %{
           username: "newuser",
           password: "password123",
           password_confirmation: "password123"
@@ -119,7 +120,7 @@ defmodule TemplateAppWeb.AuthControllerTest do
       create_user(%{username: "duplicate"})
 
       conn =
-        post(conn, ~p"/auth/register", %{
+        json_post(conn, ~p"/auth/register", %{
           username: "duplicate",
           password: "password123",
           password_confirmation: "password123"
@@ -130,7 +131,7 @@ defmodule TemplateAppWeb.AuthControllerTest do
 
     test "returns 422 when passwords don't match", %{conn: conn} do
       conn =
-        post(conn, ~p"/auth/register", %{
+        json_post(conn, ~p"/auth/register", %{
           username: "pwmismatch",
           password: "password123",
           password_confirmation: "different123"
@@ -141,7 +142,7 @@ defmodule TemplateAppWeb.AuthControllerTest do
 
     test "returns 422 when password is too short", %{conn: conn} do
       conn =
-        post(conn, ~p"/auth/register", %{
+        json_post(conn, ~p"/auth/register", %{
           username: "shortpw",
           password: "short",
           password_confirmation: "short"
@@ -151,7 +152,7 @@ defmodule TemplateAppWeb.AuthControllerTest do
     end
 
     test "returns 400 when params are missing", %{conn: conn} do
-      conn = post(conn, ~p"/auth/register", %{username: "incomplete"})
+      conn = json_post(conn, ~p"/auth/register", %{username: "incomplete"})
 
       assert %{"error" => "bad_request"} = json_response(conn, 400)
     end

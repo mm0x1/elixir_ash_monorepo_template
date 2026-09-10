@@ -26,6 +26,9 @@ config :template_app, TemplateAppWeb.Endpoint,
   secret_key_base: "arbu7Dx9F1/9SZgeFz7ts9Clpu8OZpLAysK2Jy2GoHqipfJKi04GQS/2PH36Lt16",
   server: false
 
+config :cors_plug,
+  origin: ["http://localhost:5173", "http://127.0.0.1:5173"]
+
 # Print only warnings and errors during test
 config :logger, level: :warning
 
