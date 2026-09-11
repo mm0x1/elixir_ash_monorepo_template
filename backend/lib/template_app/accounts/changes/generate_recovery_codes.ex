@@ -12,13 +12,25 @@ defmodule TemplateApp.Accounts.Changes.GenerateRecoveryCodes do
   @impl true
   def change(changeset, _opts, _ctx) do
     code_count = TemplateApp.Config.recovery_code_count()
-    codes = generate_codes(code_count, @code_length)
-    hashed = Enum.map(codes, &Argon2.hash_pwd_salt/1)
 
-    changeset
-    |> Ash.Changeset.change_attribute(:recovery_codes, hashed)
-    |> Ash.Changeset.change_attribute(:recovery_codes_generated_at, DateTime.utc_now())
-    |> Ash.Changeset.after_action(fn _cs, record ->
+    if code_count == 0 do
+      changeset
+      |> Ash.Changeset.change_attribute(:recovery_codes, [])
+      |> Ash.Changeset.change_attribute(:recovery_codes_generated_at, nil)
+      |> with_plain_codes([])
+    else
+      codes = generate_codes(code_count, @code_length)
+      hashed = Enum.map(codes, &Argon2.hash_pwd_salt/1)
+
+      changeset
+      |> Ash.Changeset.change_attribute(:recovery_codes, hashed)
+      |> Ash.Changeset.change_attribute(:recovery_codes_generated_at, DateTime.utc_now())
+      |> with_plain_codes(codes)
+    end
+  end
+
+  defp with_plain_codes(changeset, codes) do
+    Ash.Changeset.after_action(changeset, fn _cs, record ->
       {:ok, %{record | __metadata__: Map.put(record.__metadata__, :plain_recovery_codes, codes)}}
     end)
   end

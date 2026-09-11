@@ -7,6 +7,8 @@ defmodule TemplateApp.Application do
 
   @impl true
   def start(_type, _args) do
+    TemplateApp.Config.validate!()
+
     # Attach Ash action telemetry logging (dev only)
     TemplateApp.Logging.AshLogger.attach()
 

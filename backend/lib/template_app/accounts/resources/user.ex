@@ -20,6 +20,7 @@ defmodule TemplateApp.Accounts.Resources.User do
 
   alias TemplateApp.Accounts.Validations.{
     UsernameChangeRateLimit,
+    ValidateUsername,
     ValidatePasswordPolicy,
     ValidateRecoveryCode
   }
@@ -85,6 +86,7 @@ defmodule TemplateApp.Accounts.Resources.User do
 
       validate AshAuthentication.Strategy.Password.PasswordConfirmationValidation
       validate {ValidatePasswordPolicy, [argument: :password]}
+      validate {ValidateUsername, [argument: :username]}
 
       metadata :token, :string, allow_nil?: false
     end
@@ -138,21 +140,19 @@ defmodule TemplateApp.Accounts.Resources.User do
         message "only anonymous users can convert to registered"
       end
 
+      validate {ValidateUsername, [argument: :username]}
       validate {ValidatePasswordPolicy, [argument: :password]}
       change ConvertToRegistered
     end
 
     update :change_username do
+      transaction? true
       require_atomic? false
       accept [:username]
 
-      validate present(:username)
-
-      validate match(:username, ~r/^[a-zA-Z0-9_]{3,30}$/) do
-        message "must be 3-30 characters, letters, numbers, underscore only"
-      end
-
+      validate {ValidateUsername, [attribute: :username]}
       validate UsernameChangeRateLimit
+      change get_and_lock_for_update()
       change SetUsernameLastChanged
     end
 

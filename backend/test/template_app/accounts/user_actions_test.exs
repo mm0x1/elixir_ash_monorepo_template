@@ -61,6 +61,13 @@ defmodule TemplateApp.Accounts.UserActionsTest do
       assert {:error, %Ash.Error.Invalid{}} =
                Accounts.create_user("mismatch", "password123", "different123")
     end
+
+    for username <- ["ab", String.duplicate("a", 31), "has-dash", "has space"] do
+      test "rejects invalid username #{inspect(username)}" do
+        assert {:error, %Ash.Error.Invalid{}} =
+                 Accounts.create_user(unquote(username), "password123", "password123")
+      end
+    end
   end
 
   # ---------------------------------------------------------------------------
@@ -103,6 +110,24 @@ defmodule TemplateApp.Accounts.UserActionsTest do
       anon = create_anonymous()
 
       assert {:error, _} = Accounts.generate_recovery_codes(anon, actor: anon)
+    end
+
+    test "zero configured recovery codes produces an empty batch" do
+      previous = System.get_env("RECOVERY_CODE_COUNT")
+      System.put_env("RECOVERY_CODE_COUNT", "0")
+
+      on_exit(fn ->
+        if previous,
+          do: System.put_env("RECOVERY_CODE_COUNT", previous),
+          else: System.delete_env("RECOVERY_CODE_COUNT")
+      end)
+
+      user = create_user()
+      {:ok, updated_user} = Accounts.generate_recovery_codes(user, actor: user)
+
+      assert updated_user.__metadata__.plain_recovery_codes == []
+      assert updated_user.recovery_codes == []
+      assert is_nil(updated_user.recovery_codes_generated_at)
     end
   end
 
@@ -216,6 +241,13 @@ defmodule TemplateApp.Accounts.UserActionsTest do
   # ---------------------------------------------------------------------------
 
   describe "convert_to_registered" do
+    test "anonymous users do not have a password credential or password login" do
+      anon = create_anonymous()
+
+      assert is_nil(anon.hashed_password)
+      assert {:error, _} = Accounts.sign_in(to_string(anon.username), "password123")
+    end
+
     test "converts an anonymous user to registered" do
       anon = create_anonymous()
 
@@ -258,6 +290,21 @@ defmodule TemplateApp.Accounts.UserActionsTest do
                  password,
                  actor: anon
                )
+    end
+
+    for username <- ["ab", String.duplicate("b", 31), "bad-name"] do
+      test "rejects invalid conversion username #{inspect(username)}" do
+        anon = create_anonymous()
+
+        assert {:error, %Ash.Error.Invalid{}} =
+                 Accounts.convert_to_registered(
+                   anon,
+                   unquote(username),
+                   "password123",
+                   "password123",
+                   actor: anon
+                 )
+      end
     end
 
     test "rejects a password shorter than 8 characters" do
@@ -306,6 +353,29 @@ defmodule TemplateApp.Accounts.UserActionsTest do
       # Verify the error mentions the rate limit
       error_messages = Exception.message(error)
       assert error_messages =~ "days remaining" or error_messages =~ "can only be changed"
+    end
+
+    for username <- ["ab", String.duplicate("c", 31), "bad-name"] do
+      test "rejects invalid changed username #{inspect(username)}" do
+        user = create_user()
+
+        assert {:error, %Ash.Error.Invalid{}} =
+                 Accounts.change_username(user, unquote(username), actor: user)
+      end
+    end
+
+    test "only one concurrent username change can pass the cooldown" do
+      user = create_user()
+
+      results =
+        ["firstchange", "secondchange"]
+        |> Enum.map(fn username ->
+          Task.async(fn -> Accounts.change_username(user, username, actor: user) end)
+        end)
+        |> Task.await_many(15_000)
+
+      assert Enum.count(results, &match?({:ok, _}, &1)) == 1
+      assert Enum.count(results, &match?({:error, %Ash.Error.Invalid{}}, &1)) == 1
     end
   end
 end

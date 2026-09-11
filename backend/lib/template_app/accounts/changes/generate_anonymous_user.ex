@@ -1,5 +1,5 @@
 defmodule TemplateApp.Accounts.Changes.GenerateAnonymousUser do
-  @moduledoc "Creates an anonymous user with random credentials."
+  @moduledoc "Creates an anonymous user without a password credential."
 
   use Ash.Resource.Change
 
@@ -13,6 +13,6 @@ defmodule TemplateApp.Accounts.Changes.GenerateAnonymousUser do
     changeset
     |> Ash.Changeset.change_attribute(:username, "anon_#{suffix}")
     |> Ash.Changeset.change_attribute(:is_anonymous, true)
-    |> Ash.Changeset.change_attribute(:hashed_password, Argon2.hash_pwd_salt(suffix))
+    |> Ash.Changeset.change_attribute(:hashed_password, nil)
   end
 end

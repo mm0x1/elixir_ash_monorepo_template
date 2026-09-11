@@ -95,6 +95,13 @@ defmodule TemplateAppWeb.AuthControllerTest do
 
       assert %{"error" => "bad_request"} = json_response(conn, 400)
     end
+
+    test "rejects passwords over the configured maximum before authentication", %{conn: conn} do
+      password = String.duplicate("a", 129)
+      conn = json_post(conn, ~p"/auth/login", %{username: "user", password: password})
+
+      assert %{"error" => "invalid_credentials"} = json_response(conn, 401)
+    end
   end
 
   # ---------------------------------------------------------------------------

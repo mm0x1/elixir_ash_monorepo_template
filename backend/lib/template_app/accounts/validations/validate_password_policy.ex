@@ -6,6 +6,15 @@ defmodule TemplateApp.Accounts.Validations.ValidatePasswordPolicy do
   @min_length 8
   @max_length 128
 
+  @doc false
+  def max_length, do: @max_length
+
+  @doc false
+  def within_max_length?(password) when is_binary(password),
+    do: String.length(password) <= @max_length
+
+  def within_max_length?(_password), do: false
+
   @impl true
   def validate(changeset, opts, _context) do
     argument = Keyword.fetch!(opts, :argument)

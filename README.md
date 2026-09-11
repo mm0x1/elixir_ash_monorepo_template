@@ -136,6 +136,9 @@ This template is designed for side projects and prototyping. Be aware of these t
   default limits are login 5/min, registration 3/min, refresh 10/min, reset 5/hr, and logout
   20/min. Hammer's ETS backend is single-node; configure a shared limiter before scaling across
   nodes. Forwarded IPs are ignored unless the proxy address is listed in `TRUSTED_PROXY_IPS`.
+- **Account invariants** — usernames are 3-30 ASCII letters, numbers, or underscores; passwords
+  are 8-128 characters. Recovery-code count, TTL, and username cooldown settings are bounded and
+  invalid values fail startup. A zero recovery-code count intentionally disables code generation.
 - **HTTPS** — production requires `FORCE_SSL=true` and `TRUST_PROXY_HEADERS=true` behind a
   TLS-terminating reverse proxy. The proxy must set the forwarded scheme before the release
   emits HSTS or serves credential-bearing cookies.

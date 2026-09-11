@@ -21,6 +21,7 @@ defmodule TemplateAppWeb.AuthController do
   alias TemplateApp.Accounts.JWT
   alias TemplateApp.Accounts.RefreshSessions
   alias TemplateApp.Accounts.Resources.RefreshToken
+  alias TemplateApp.Accounts.Validations.ValidatePasswordPolicy
   alias TemplateAppWeb.Helpers.ApiResponse
   alias TemplateAppWeb.Plugs.RateLimitPlug
 
@@ -71,12 +72,16 @@ defmodule TemplateAppWeb.AuthController do
   end
 
   def login(conn, %{"username" => username, "password" => password}) do
-    case Accounts.sign_in(username, password) do
-      {:ok, user} ->
-        create_tokens_and_respond(conn, user)
+    if ValidatePasswordPolicy.within_max_length?(password) do
+      case Accounts.sign_in(username, password) do
+        {:ok, user} ->
+          create_tokens_and_respond(conn, user)
 
-      {:error, _reason} ->
-        ApiResponse.unauthorized(conn, "invalid_credentials", "Invalid username or password")
+        {:error, _reason} ->
+          ApiResponse.unauthorized(conn, "invalid_credentials", "Invalid username or password")
+      end
+    else
+      ApiResponse.unauthorized(conn, "invalid_credentials", "Invalid username or password")
     end
   end
 
