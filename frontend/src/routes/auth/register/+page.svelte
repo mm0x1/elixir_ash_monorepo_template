@@ -40,10 +40,14 @@
 	}
 </script>
 
+<svelte:head>
+	<title>Create account | Template App</title>
+</svelte:head>
+
 <div class="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
 	<div class="max-w-md w-full space-y-8">
 		<div>
-			<h2 class="mt-6 text-center text-3xl font-extrabold text-gray-900">Create your account</h2>
+			<h1 class="mt-6 text-center text-3xl font-extrabold text-gray-900">Create your account</h1>
 			<p class="mt-2 text-center text-sm text-gray-600">
 				Already have an account?
 				<a href={resolve('/auth/login')} class="font-medium text-blue-600 hover:text-blue-500">
@@ -54,7 +58,7 @@
 
 		<form class="mt-8 space-y-6" onsubmit={handleSubmit}>
 			{#if error}
-				<FormAlert message={error} />
+				<FormAlert id="register-form-error" message={error} />
 			{/if}
 
 			<div class="space-y-4">
@@ -66,11 +70,22 @@
 						type="text"
 						autocomplete="username"
 						required
+						minlength="3"
+						maxlength="30"
+						pattern="[A-Za-z0-9_]+"
+						title="Use 3 to 30 letters, numbers, or underscores"
+						aria-describedby={error
+							? 'register-username-hint register-form-error'
+							: 'register-username-hint'}
+						aria-invalid={error ? 'true' : undefined}
 						bind:value={username}
 						disabled={loading}
 						class="mt-1 block w-full px-3 py-2 border border-gray-300 text-gray-900 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm disabled:opacity-50"
 						placeholder="Choose a username"
 					/>
+					<p id="register-username-hint" class="mt-1 text-xs text-gray-600">
+						Use 3 to 30 letters, numbers, or underscores.
+					</p>
 				</div>
 
 				<div>
@@ -81,11 +96,20 @@
 						type="password"
 						autocomplete="new-password"
 						required
+						minlength="8"
+						maxlength="128"
+						aria-describedby={error
+							? 'register-password-hint register-form-error'
+							: 'register-password-hint'}
+						aria-invalid={error ? 'true' : undefined}
 						bind:value={password}
 						disabled={loading}
 						class="mt-1 block w-full px-3 py-2 border border-gray-300 text-gray-900 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm disabled:opacity-50"
 						placeholder="Create a password"
 					/>
+					<p id="register-password-hint" class="mt-1 text-xs text-gray-600">
+						Use 8 to 128 characters.
+					</p>
 				</div>
 
 				<div>
@@ -98,6 +122,12 @@
 						type="password"
 						autocomplete="new-password"
 						required
+						minlength="8"
+						maxlength="128"
+						aria-describedby={error
+							? 'register-password-hint register-form-error'
+							: 'register-password-hint'}
+						aria-invalid={error ? 'true' : undefined}
 						bind:value={passwordConfirmation}
 						disabled={loading}
 						class="mt-1 block w-full px-3 py-2 border border-gray-300 text-gray-900 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm disabled:opacity-50"

@@ -33,7 +33,18 @@ describe('login page', () => {
 
 		await fillAndSubmit('alice', 'wrongpassword');
 
-		expect(await screen.findByRole('alert')).toHaveTextContent('Invalid username or password');
+		const alert = await screen.findByRole('alert');
+		expect(alert).toHaveTextContent('Invalid username or password');
+		expect(alert).toHaveAttribute('id', 'login-form-error');
+		expect(alert).toHaveAttribute('aria-live', 'assertive');
+		expect(screen.getByLabelText('Username')).toHaveAttribute(
+			'aria-describedby',
+			'login-username-hint login-form-error'
+		);
+		expect(screen.getByLabelText('Password')).toHaveAttribute(
+			'aria-describedby',
+			'login-password-hint login-form-error'
+		);
 		expect(goto).not.toHaveBeenCalled();
 	});
 

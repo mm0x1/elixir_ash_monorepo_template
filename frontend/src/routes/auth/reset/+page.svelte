@@ -36,10 +36,14 @@
 	}
 </script>
 
+<svelte:head>
+	<title>Reset password | Template App</title>
+</svelte:head>
+
 <div class="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
 	<div class="max-w-md w-full space-y-8">
 		<div>
-			<h2 class="mt-6 text-center text-3xl font-extrabold text-gray-900">Reset your password</h2>
+			<h1 class="mt-6 text-center text-3xl font-extrabold text-gray-900">Reset your password</h1>
 			<p class="mt-2 text-center text-sm text-gray-600">
 				Remembered it?
 				<a href={resolve('/auth/login')} class="font-medium text-blue-600 hover:text-blue-500">
@@ -49,7 +53,7 @@
 		</div>
 
 		{#if error}
-			<FormAlert message={error} />
+			<FormAlert id="reset-form-error" message={error} />
 		{/if}
 
 		<form class="mt-8 space-y-6" onsubmit={handleReset}>
@@ -62,11 +66,22 @@
 						type="text"
 						autocomplete="username"
 						required
+						minlength="3"
+						maxlength="30"
+						pattern="[A-Za-z0-9_]+"
+						title="Use 3 to 30 letters, numbers, or underscores"
+						aria-describedby={error
+							? 'reset-username-hint reset-form-error'
+							: 'reset-username-hint'}
+						aria-invalid={error ? 'true' : undefined}
 						bind:value={username}
 						disabled={loading}
 						class={inputClass}
 						placeholder="Enter your username"
 					/>
+					<p id="reset-username-hint" class="mt-1 text-xs text-gray-600">
+						Use 3 to 30 letters, numbers, or underscores.
+					</p>
 				</div>
 
 				<div>
@@ -79,11 +94,16 @@
 						type="text"
 						autocomplete="off"
 						required
+						aria-describedby={error ? 'reset-code-hint reset-form-error' : 'reset-code-hint'}
+						aria-invalid={error ? 'true' : undefined}
 						bind:value={recoveryCode}
 						disabled={loading}
 						class={inputClass}
 						placeholder="Enter a recovery code"
 					/>
+					<p id="reset-code-hint" class="mt-1 text-xs text-gray-600">
+						Use a recovery code that you generated while signed in.
+					</p>
 				</div>
 
 				<div>
@@ -98,11 +118,18 @@
 						required
 						minlength="8"
 						maxlength="128"
+						aria-describedby={error
+							? 'reset-password-hint reset-form-error'
+							: 'reset-password-hint'}
+						aria-invalid={error ? 'true' : undefined}
 						bind:value={newPassword}
 						disabled={loading}
 						class={inputClass}
 						placeholder="Enter a new password"
 					/>
+					<p id="reset-password-hint" class="mt-1 text-xs text-gray-600">
+						Use 8 to 128 characters.
+					</p>
 				</div>
 			</div>
 

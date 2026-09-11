@@ -1,6 +1,32 @@
 import { expect, test } from '@playwright/test';
 import { userDto } from '../tests/support/fixtures';
 
+test('auth pages expose one main landmark and keyboard-visible form navigation', async ({
+	page
+}) => {
+	await page.route('**/auth/refresh', (route) =>
+		route.fulfill({
+			status: 401,
+			contentType: 'application/json',
+			body: JSON.stringify({ error: 'no_refresh_token', message: 'No refresh token found' })
+		})
+	);
+
+	await page.goto('/auth/login');
+
+	await expect(
+		page.getByRole('heading', { level: 1, name: 'Sign in to your account' })
+	).toBeVisible();
+	await expect(page.getByRole('main')).toHaveCount(1);
+	await expect(page).toHaveTitle('Sign in | Template App');
+
+	const username = page.getByLabel('Username');
+	const password = page.getByLabel('Password');
+	await username.focus();
+	await page.keyboard.press('Tab');
+	await expect(password).toBeFocused();
+});
+
 test('signing in lands on the authenticated home page', async ({ page }) => {
 	// No existing session on load.
 	await page.route('**/auth/refresh', (route) =>

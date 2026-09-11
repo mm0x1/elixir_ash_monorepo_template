@@ -63,6 +63,10 @@
 	}
 </script>
 
+<svelte:head>
+	<title>Convert account | Template App</title>
+</svelte:head>
+
 {#if $currentUser?.isGuest}
 	<div class="min-h-screen bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
 		<div class="max-w-md mx-auto">
@@ -81,7 +85,7 @@
 
 				<form onsubmit={handleSubmit} class="space-y-6">
 					{#if error}
-						<FormAlert message={error} />
+						<FormAlert id="convert-form-error" message={error} />
 					{/if}
 
 					<div>
@@ -92,11 +96,22 @@
 							type="text"
 							autocomplete="username"
 							required
+							minlength="3"
+							maxlength="30"
+							pattern="[A-Za-z0-9_]+"
+							title="Use 3 to 30 letters, numbers, or underscores"
+							aria-describedby={error
+								? 'convert-username-hint convert-form-error'
+								: 'convert-username-hint'}
+							aria-invalid={error ? 'true' : undefined}
 							bind:value={username}
 							disabled={loading}
 							class={inputClass}
 							placeholder="Choose a username"
 						/>
+						<p id="convert-username-hint" class="mt-1 text-xs text-gray-600">
+							Use 3 to 30 letters, numbers, or underscores.
+						</p>
 					</div>
 
 					<div>
@@ -107,11 +122,20 @@
 							type="password"
 							autocomplete="new-password"
 							required
+							minlength="8"
+							maxlength="128"
+							aria-describedby={error
+								? 'convert-password-hint convert-form-error'
+								: 'convert-password-hint'}
+							aria-invalid={error ? 'true' : undefined}
 							bind:value={password}
 							disabled={loading}
 							class={inputClass}
 							placeholder="Create a password"
 						/>
+						<p id="convert-password-hint" class="mt-1 text-xs text-gray-600">
+							Use 8 to 128 characters.
+						</p>
 					</div>
 
 					<div>
@@ -124,6 +148,12 @@
 							type="password"
 							autocomplete="new-password"
 							required
+							minlength="8"
+							maxlength="128"
+							aria-describedby={error
+								? 'convert-password-hint convert-form-error'
+								: 'convert-password-hint'}
+							aria-invalid={error ? 'true' : undefined}
 							bind:value={passwordConfirmation}
 							disabled={loading}
 							class={inputClass}

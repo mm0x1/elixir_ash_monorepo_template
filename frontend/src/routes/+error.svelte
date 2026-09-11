@@ -3,6 +3,10 @@
 	import { resolve } from '$app/paths';
 </script>
 
+<svelte:head>
+	<title>{page.status === 404 ? 'Page not found' : 'Error'} | Template App</title>
+</svelte:head>
+
 <div class="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4">
 	<div class="text-center">
 		<p class="text-6xl font-bold text-gray-300">{page.status}</p>

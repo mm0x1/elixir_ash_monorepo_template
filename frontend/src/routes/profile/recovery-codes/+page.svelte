@@ -13,6 +13,8 @@
 	let error = $state('');
 	let showCodes = $state(false);
 	let copied = $state(false);
+	let copyError = $state('');
+	let confirmingReplacement = $state(false);
 	let copyResetTimer: ReturnType<typeof setTimeout> | undefined;
 
 	onMount(() => {
@@ -32,6 +34,7 @@
 		error = '';
 		loading = true;
 		copied = false;
+		copyError = '';
 		const generation = getSessionGeneration();
 		const userId = $currentUser.id;
 
@@ -49,8 +52,20 @@
 		}
 	}
 
+	function requestGenerateCodes() {
+		if (!$currentUser) return;
+
+		if ($currentUser.hasRecoveryCodes) {
+			confirmingReplacement = true;
+			return;
+		}
+
+		void handleGenerateCodes();
+	}
+
 	async function copyToClipboard() {
 		const codesText = recoveryCodes.join('\n');
+		copyError = '';
 		try {
 			await navigator.clipboard.writeText(codesText);
 			copied = true;
@@ -61,6 +76,7 @@
 				copied = false;
 			}, 3000);
 		} catch {
+			copyError = 'Failed to copy to clipboard. Select and copy the codes manually.';
 			notifications.error('Failed to copy to clipboard');
 		}
 	}
@@ -81,6 +97,10 @@
 		notifications.success('Recovery codes downloaded');
 	}
 </script>
+
+<svelte:head>
+	<title>Recovery codes | Template App</title>
+</svelte:head>
 
 {#if $currentUser && !$currentUser.isGuest}
 	<div class="min-h-screen bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
@@ -125,12 +145,12 @@
 						{/if}
 
 						{#if error}
-							<FormAlert message={error} />
+							<FormAlert id="recovery-codes-error" message={error} />
 						{/if}
 
 						<button
 							type="button"
-							onclick={handleGenerateCodes}
+							onclick={requestGenerateCodes}
 							disabled={loading}
 							class="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
 						>
@@ -140,6 +160,43 @@
 								Generate New Recovery Codes
 							{/if}
 						</button>
+
+						{#if confirmingReplacement}
+							<div
+								class="border border-yellow-300 bg-yellow-50 text-yellow-900 px-4 py-4 rounded"
+								role="alertdialog"
+								aria-modal="true"
+								aria-labelledby="replace-codes-title"
+								aria-describedby="replace-codes-description"
+							>
+								<h3 id="replace-codes-title" class="font-semibold">
+									Replace existing recovery codes?
+								</h3>
+								<p id="replace-codes-description" class="mt-1 text-sm">
+									Your current codes will stop working immediately. Continue only if you have saved
+									them or no longer need them.
+								</p>
+								<div class="mt-4 flex gap-3">
+									<button
+										type="button"
+										onclick={() => (confirmingReplacement = false)}
+										class="flex-1 rounded border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
+									>
+										Cancel
+									</button>
+									<button
+										type="button"
+										onclick={() => {
+											confirmingReplacement = false;
+											void handleGenerateCodes();
+										}}
+										class="flex-1 rounded bg-yellow-700 px-4 py-2 text-sm font-medium text-white hover:bg-yellow-800 focus:outline-none focus:ring-2 focus:ring-yellow-600"
+									>
+										Replace existing codes
+									</button>
+								</div>
+							</div>
+						{/if}
 					</div>
 				</div>
 			{:else}
@@ -219,6 +276,10 @@
 								Download
 							</button>
 						</div>
+
+						{#if copyError}
+							<FormAlert id="clipboard-error" message={copyError} />
+						{/if}
 
 						<div class="pt-4 border-t border-gray-200">
 							<a

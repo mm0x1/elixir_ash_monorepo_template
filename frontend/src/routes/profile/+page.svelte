@@ -53,6 +53,10 @@
 	}
 </script>
 
+<svelte:head>
+	<title>Profile | Template App</title>
+</svelte:head>
+
 {#if $currentUser}
 	<div class="min-h-screen bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
 		<div class="max-w-2xl mx-auto">
@@ -92,11 +96,15 @@
 
 				<form onsubmit={handleUsernameUpdate} class="space-y-4">
 					{#if error}
-						<FormAlert message={error} />
+						<FormAlert id="profile-form-error" message={error} />
 					{/if}
 
 					{#if success}
-						<FormAlert message="Username updated successfully!" variant="success" />
+						<FormAlert
+							id="profile-form-success"
+							message="Username updated successfully!"
+							variant="success"
+						/>
 					{/if}
 
 					<div>
@@ -107,10 +115,21 @@
 							type="text"
 							autocomplete="username"
 							required
+							minlength="3"
+							maxlength="30"
+							pattern="[A-Za-z0-9_]+"
+							title="Use 3 to 30 letters, numbers, or underscores"
+							aria-describedby={error
+								? 'profile-username-hint profile-form-error'
+								: 'profile-username-hint'}
+							aria-invalid={error ? 'true' : undefined}
 							bind:value={username}
 							disabled={loading}
 							class="mt-1 block w-full px-3 py-2 border border-gray-300 text-gray-900 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm disabled:opacity-50"
 						/>
+						<p id="profile-username-hint" class="mt-1 text-xs text-gray-600">
+							Use 3 to 30 letters, numbers, or underscores.
+						</p>
 					</div>
 
 					<button

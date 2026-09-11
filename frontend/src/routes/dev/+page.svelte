@@ -9,7 +9,11 @@
 	const sandboxes = [{ path: '/dev/notifications', label: 'Notifications (toasts)' }] as const;
 </script>
 
-<main class="mx-auto max-w-2xl p-8">
+<svelte:head>
+	<title>Component dev | Template App</title>
+</svelte:head>
+
+<div class="mx-auto max-w-2xl p-8">
 	<h1 class="mb-2 text-2xl font-bold">Component Dev</h1>
 	<p class="mb-6 text-sm text-gray-600">
 		Isolated component sandboxes. Each renders one component against mock data.
@@ -24,4 +28,4 @@
 			</li>
 		{/each}
 	</ul>
-</main>
+</div>

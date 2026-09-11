@@ -34,9 +34,9 @@
 </svelte:head>
 
 {#if $authLoading}
-	<div class="min-h-screen flex items-center justify-center" role="status" aria-label="Loading">
+	<main class="min-h-screen flex items-center justify-center" role="status" aria-label="Loading">
 		<div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-	</div>
+	</main>
 {:else}
 	{#if $authError}
 		<div class="bg-yellow-50 border-b border-yellow-200 px-4 py-3 text-yellow-800" role="alert">

@@ -18,6 +18,13 @@ import { user, userWithCodes, guestUser, recoveryCodes } from '../support/fixtur
 
 afterEach(() => currentUser.set(null));
 
+function setClipboard(writeText: ReturnType<typeof vi.fn>) {
+	Object.defineProperty(navigator, 'clipboard', {
+		configurable: true,
+		value: { writeText }
+	});
+}
+
 describe('recovery-codes gating', () => {
 	// Auth redirect (unauthenticated → /auth/login) is handled by the profile
 	// layout, not the page itself. These tests render the page in isolation
@@ -46,6 +53,22 @@ describe('recovery-codes display branches', () => {
 
 		expect(screen.getByText(/already have recovery codes/i)).toBeInTheDocument();
 	});
+
+	it('requires confirmation before replacing existing codes', async () => {
+		const user2 = userEvent.setup();
+		currentUser.set(userWithCodes);
+		render(RecoveryCodesPage);
+
+		await user2.click(screen.getByRole('button', { name: 'Generate New Recovery Codes' }));
+
+		const dialog = screen.getByRole('alertdialog');
+		expect(dialog).toHaveAccessibleName('Replace existing recovery codes?');
+		expect(dialog).toHaveAccessibleDescription(/stop working immediately/i);
+		expect(screen.queryByText(recoveryCodes[0])).not.toBeInTheDocument();
+
+		await user2.click(screen.getByRole('button', { name: 'Cancel' }));
+		expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
+	});
 });
 
 describe('recovery-codes generation (MSW)', () => {
@@ -70,5 +93,25 @@ describe('recovery-codes generation (MSW)', () => {
 		await user2.click(screen.getByRole('button', { name: 'Download' }));
 		expect(createObjectURL).toHaveBeenCalledOnce();
 		expect(clickSpy).toHaveBeenCalledOnce();
+	});
+
+	it('shows clipboard success and failure states', async () => {
+		const user2 = userEvent.setup();
+		const writeText = vi.fn().mockResolvedValue(undefined);
+		setClipboard(writeText);
+		currentUser.set(user);
+		render(RecoveryCodesPage);
+
+		await user2.click(screen.getByRole('button', { name: 'Generate New Recovery Codes' }));
+		await screen.findByText(recoveryCodes[0]);
+		await user2.click(screen.getByRole('button', { name: 'Copy to Clipboard' }));
+		await vi.waitFor(() =>
+			expect(screen.getByRole('button', { name: 'Copied!' })).toBeInTheDocument()
+		);
+		expect(writeText).toHaveBeenCalledWith(recoveryCodes.join('\n'));
+
+		writeText.mockRejectedValueOnce(new Error('clipboard unavailable'));
+		await user2.click(screen.getByRole('button', { name: 'Copied!' }));
+		expect(await screen.findByText(/failed to copy to clipboard/i)).toBeInTheDocument();
 	});
 });

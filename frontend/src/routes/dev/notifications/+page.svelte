@@ -6,7 +6,11 @@
 	// the real store so every display branch can be exercised by hand.
 </script>
 
-<main class="mx-auto max-w-2xl p-8">
+<svelte:head>
+	<title>Notifications | Template App</title>
+</svelte:head>
+
+<div class="mx-auto max-w-2xl p-8">
 	<h1 class="mb-6 text-2xl font-bold">Notifications</h1>
 
 	<div class="flex flex-wrap gap-2">
@@ -46,6 +50,6 @@
 			Clear all
 		</button>
 	</div>
-</main>
+</div>
 
 <Notifications />

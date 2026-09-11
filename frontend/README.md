@@ -47,6 +47,8 @@ Recovery codes are generated while signed in from the account recovery page and
 are shown only once. The password-reset form requires a username, a previously
 stored recovery code, and a new password. The application never sends email; if
 all recovery codes are lost, there is no self-service password-reset path.
+Generating a replacement batch invalidates the previous batch and requires an
+explicit confirmation in the UI.
 
 ## Project Structure
 
