@@ -49,5 +49,19 @@ defmodule TemplateApp.ConfigTest do
         end
       end
     end
+
+    test "accepts bounded token-cleanup intervals" do
+      assert Config.parse_token_cleanup_interval_ms("60000") == 60_000
+      assert Config.parse_token_cleanup_interval_ms("3600000") == 3_600_000
+      assert Config.parse_token_cleanup_interval_ms("86400000") == 86_400_000
+    end
+
+    test "rejects unsafe token-cleanup intervals" do
+      for value <- ["59999", "86400001", "-1", "nope"] do
+        assert_raise ArgumentError, ~r/TOKEN_CLEANUP_INTERVAL_MS/, fn ->
+          Config.parse_token_cleanup_interval_ms(value)
+        end
+      end
+    end
   end
 end

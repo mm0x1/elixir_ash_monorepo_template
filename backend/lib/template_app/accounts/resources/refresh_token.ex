@@ -38,6 +38,16 @@ defmodule TemplateApp.Accounts.Resources.RefreshToken do
   postgres do
     table "refresh_tokens"
     repo TemplateApp.Repo
+
+    check_constraints do
+      check_constraint :version, "refresh_tokens_version_positive",
+        check: "version > 0",
+        message: "must be positive"
+
+      check_constraint :secret_hash, "refresh_tokens_secret_hash_length",
+        check: "octet_length(secret_hash) = 32",
+        message: "must be a SHA-256 digest"
+    end
   end
 
   actions do

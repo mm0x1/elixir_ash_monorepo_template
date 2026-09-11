@@ -112,6 +112,8 @@ config :logger, :default_formatter,
     :action_type,
     :kind,
     :error_category,
+    :token_count,
+    :refresh_session_count,
 
     # Error tracking & correlation
     :error,

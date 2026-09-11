@@ -3,6 +3,7 @@ import Config
 config :template_app,
   dev_routes: false,
   allow_privileged_seeds: false,
+  token_cleanup_enabled: false,
   token_signing_secret: "l8smtRvlNLSrp7Gwdu+3kn/uAIhHEjNY",
   ash_auth_signing_secret: "x7mQpRvKt9nWfYc3bJ5hLe8gAi2dUo4s"
 

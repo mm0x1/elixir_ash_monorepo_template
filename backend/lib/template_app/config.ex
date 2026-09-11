@@ -21,12 +21,16 @@ defmodule TemplateApp.Config do
   @default_recovery_code_ttl_seconds 3600
   @min_recovery_code_ttl_seconds 60
   @max_recovery_code_ttl_seconds 2_592_000
+  @default_token_cleanup_interval_ms 3_600_000
+  @min_token_cleanup_interval_ms 60_000
+  @max_token_cleanup_interval_ms 86_400_000
 
   @doc "Validates all environment-backed account configuration values."
   def validate! do
     username_change_cooldown_days()
     recovery_code_count()
     recovery_code_ttl_seconds()
+    token_cleanup_interval_ms()
     :ok
   end
 
@@ -57,6 +61,15 @@ defmodule TemplateApp.Config do
     )
   end
 
+  def token_cleanup_interval_ms do
+    parse_optional_integer(
+      "TOKEN_CLEANUP_INTERVAL_MS",
+      @default_token_cleanup_interval_ms,
+      @min_token_cleanup_interval_ms,
+      @max_token_cleanup_interval_ms
+    )
+  end
+
   @doc false
   def parse_username_change_cooldown_days(value),
     do: parse_integer("USERNAME_COOLDOWN_DAYS", value, 0, @max_username_cooldown_days)
@@ -73,6 +86,16 @@ defmodule TemplateApp.Config do
         value,
         @min_recovery_code_ttl_seconds,
         @max_recovery_code_ttl_seconds
+      )
+
+  @doc false
+  def parse_token_cleanup_interval_ms(value),
+    do:
+      parse_integer(
+        "TOKEN_CLEANUP_INTERVAL_MS",
+        value,
+        @min_token_cleanup_interval_ms,
+        @max_token_cleanup_interval_ms
       )
 
   defp parse_optional_integer(variable, default, min, max) do

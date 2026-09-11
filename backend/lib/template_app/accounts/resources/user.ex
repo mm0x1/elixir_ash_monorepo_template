@@ -63,6 +63,16 @@ defmodule TemplateApp.Accounts.Resources.User do
   postgres do
     table "users"
     repo TemplateApp.Repo
+
+    check_constraints do
+      check_constraint :role, "users_role_is_valid",
+        check: "role IN ('user', 'admin', 'superadmin')",
+        message: "is invalid"
+
+      check_constraint :token_version, "users_token_version_positive",
+        check: "token_version > 0",
+        message: "must be positive"
+    end
   end
 
   actions do

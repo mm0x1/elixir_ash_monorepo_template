@@ -12,18 +12,19 @@ defmodule TemplateApp.Application do
     # Attach Ash action telemetry logging (dev only)
     TemplateApp.Logging.AshLogger.attach()
 
-    children = [
-      TemplateApp.RateLimit,
-      TemplateAppWeb.Telemetry,
-      TemplateApp.Repo,
-      {DNSCluster, query: Application.get_env(:template_app, :dns_cluster_query) || :ignore},
-      {Phoenix.PubSub, name: TemplateApp.PubSub},
-      # Start a worker by calling: TemplateApp.Worker.start_link(arg)
-      # {TemplateApp.Worker, arg},
-      # Start to serve requests, typically the last entry
-      TemplateAppWeb.Endpoint,
-      {AshAuthentication.Supervisor, [otp_app: :template_app]}
-    ]
+    children =
+      [
+        TemplateApp.RateLimit,
+        TemplateAppWeb.Telemetry,
+        TemplateApp.Repo,
+        {DNSCluster, query: Application.get_env(:template_app, :dns_cluster_query) || :ignore},
+        {Phoenix.PubSub, name: TemplateApp.PubSub},
+        # Start a worker by calling: TemplateApp.Worker.start_link(arg)
+        # {TemplateApp.Worker, arg},
+        # Start to serve requests, typically the last entry
+        TemplateAppWeb.Endpoint,
+        {AshAuthentication.Supervisor, [otp_app: :template_app]}
+      ] ++ cleanup_children()
 
     # See https://hexdocs.pm/elixir/Supervisor.html
     # for other strategies and supported options
@@ -40,6 +41,14 @@ defmodule TemplateApp.Application do
     })
 
     result
+  end
+
+  defp cleanup_children do
+    if TemplateApp.TokenCleanup.enabled?() do
+      [TemplateApp.TokenCleanup]
+    else
+      []
+    end
   end
 
   # Tell Phoenix to update the endpoint configuration
