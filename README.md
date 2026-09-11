@@ -41,6 +41,14 @@ Separately hosted frontend and backend deployments require `VITE_API_URL` and
 not contain a path, wildcard, or trailing slash. Credentialed requests are not
 supported with a wildcard origin.
 
+Production uses an HTTPS reverse proxy in front of the Phoenix release. Set
+`PHX_HOST`, `FORCE_SSL=true`, and `TRUST_PROXY_HEADERS=true`; the proxy must
+terminate TLS, strip client-supplied `x-forwarded-*` headers, and set the
+forwarded host, port, and protocol itself. The release rejects an incomplete
+HTTPS configuration, emits HSTS only for requests recognized as HTTPS, and
+sets refresh cookies to `Secure`. A separately hosted frontend uses
+`SameSite=None`; the combined same-origin release uses `SameSite=Lax`.
+
 Tilt waits for PostgreSQL, runs backend setup and seeds before Phoenix, installs
 frontend dependencies and hooks, and exposes readiness, logs, and links in its
 UI. Source edits continue to use Phoenix reload and Vite HMR; dependency,
@@ -126,7 +134,8 @@ This template is designed for side projects and prototyping. Be aware of these t
 - **Rate limiting** — auth endpoints are rate-limited per IP via Hammer (login: 5/min, register:
   3/min, reset password: 5/hr). Adjust limits in
   `TemplateAppWeb.Plugs.RateLimitPlug`.
-- **HTTPS** — set `FORCE_SSL=true` in production to enable redirect-to-HTTPS and HSTS. The
-  endpoint's CSP and HSTS headers activate automatically when this is set.
+- **HTTPS** — production requires `FORCE_SSL=true` and `TRUST_PROXY_HEADERS=true` behind a
+  TLS-terminating reverse proxy. The proxy must set the forwarded scheme before the release
+  emits HSTS or serves credential-bearing cookies.
 - **Signing secrets** — the app uses two separate secrets: `TOKEN_SIGNING_SECRET` (Joken JWTs) and
   `ASH_AUTH_SIGNING_SECRET` (AshAuthentication). Generate unique values with `mix phx.gen.secret 32`.

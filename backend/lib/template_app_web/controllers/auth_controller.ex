@@ -292,17 +292,29 @@ defmodule TemplateAppWeb.AuthController do
     put_resp_cookie(conn, @refresh_token_cookie, token_id,
       http_only: true,
       secure: secure_cookies?(),
-      same_site: "Lax",
+      same_site: refresh_cookie_same_site(),
       max_age: @refresh_token_max_age,
       path: "/"
     )
   end
 
   defp delete_refresh_cookie(conn) do
-    delete_resp_cookie(conn, @refresh_token_cookie, path: "/")
+    delete_resp_cookie(conn, @refresh_token_cookie,
+      path: "/",
+      secure: secure_cookies?(),
+      same_site: refresh_cookie_same_site()
+    )
   end
 
   defp secure_cookies? do
-    Application.get_env(:template_app, :env) == :prod
+    Application.get_env(
+      :template_app,
+      :secure_cookies,
+      Application.get_env(:template_app, :env) == :prod
+    )
+  end
+
+  defp refresh_cookie_same_site do
+    Application.get_env(:template_app, :refresh_cookie_same_site, "Lax")
   end
 end

@@ -48,6 +48,7 @@ defmodule TemplateAppWeb.AuthResetControllerTest do
         })
 
       assert %{"message" => _} = json_response(reset_conn, 200)
+      assert get_resp_header(reset_conn, "cache-control") == ["no-store"]
 
       # New password now authenticates.
       new_login =

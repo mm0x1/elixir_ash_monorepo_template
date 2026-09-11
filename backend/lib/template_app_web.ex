@@ -17,7 +17,7 @@ defmodule TemplateAppWeb do
   those modules here.
   """
 
-  def static_paths, do: ~w(_app assets fonts images favicon.ico index.html robots.txt)
+  def static_paths, do: ~w(_app assets fonts images favicon.ico robots.txt)
 
   def router do
     quote do

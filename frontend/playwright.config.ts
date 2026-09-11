@@ -5,6 +5,7 @@ import { defineConfig, devices } from '@playwright/test';
 // backend.
 export default defineConfig({
 	testDir: './e2e',
+	testIgnore: ['**/production-smoke.spec.ts'],
 	fullyParallel: true,
 	forbidOnly: !!process.env.CI,
 	retries: process.env.CI ? 2 : 0,

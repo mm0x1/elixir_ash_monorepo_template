@@ -78,6 +78,7 @@ defmodule TemplateAppWeb.AuthControllerTest do
       assert is_binary(token)
       assert user["username"] == "logintest"
       assert {:ok, _cookie_id} = get_resp_cookie(conn)
+      assert get_resp_header(conn, "cache-control") == ["no-store"]
     end
 
     test "returns 401 for wrong password", %{conn: conn} do
@@ -173,6 +174,7 @@ defmodule TemplateAppWeb.AuthControllerTest do
 
       assert %{"access_token" => access_token} = json_response(conn, 200)
       assert is_binary(access_token)
+      assert get_resp_header(conn, "cache-control") == ["no-store"]
 
       {:ok, new_cookie_id} = get_resp_cookie(conn)
       assert new_cookie_id != old_token.id

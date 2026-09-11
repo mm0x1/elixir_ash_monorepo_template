@@ -43,6 +43,8 @@ RUN mix release
 # Stage 3: Production runner
 FROM debian:bookworm-slim AS runner
 
+ARG VITE_API_URL=
+
 RUN apt-get update -y && \
     apt-get install -y libstdc++6 openssl libncurses5 locales ca-certificates && \
     apt-get clean && rm -rf /var/lib/apt/lists/*
@@ -52,6 +54,7 @@ RUN sed -i '/en_US.UTF-8/s/^# //g' /etc/locale.gen && locale-gen
 ENV LANG=en_US.UTF-8
 ENV LANGUAGE=en_US:en
 ENV LC_ALL=en_US.UTF-8
+ENV VITE_API_URL=${VITE_API_URL}
 
 WORKDIR /app
 

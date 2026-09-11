@@ -91,5 +91,75 @@ jobs:
         working-directory: frontend
         run: npm run test:e2e
 
+  production-smoke:
+    name: Production image smoke
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: test_db
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install mise-managed tools
+        uses: jdx/mise-action@v4
+        with:
+          minimum_release_age: 7d
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Install frontend test dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Install Playwright browser
+        working-directory: frontend
+        run: npx playwright install --with-deps chromium
+
       - name: Build production image
-        run: docker build --tag template-app:test .
+        run: docker build --tag template-app:smoke .
+
+      - name: Start production image
+        run: >-
+          docker run --detach --name template-app-smoke --network host
+          --env DATABASE_URL=ecto://postgres:postgres@127.0.0.1:5432/test_db
+          --env SECRET_KEY_BASE=production-smoke-secret-key-base
+          --env TOKEN_SIGNING_SECRET=production-smoke-token-secret
+          --env ASH_AUTH_SIGNING_SECRET=production-smoke-ash-secret
+          --env PHX_HOST=app.example.com
+          --env FRONTEND_URL=https://app.example.com
+          --env FORCE_SSL=true
+          --env TRUST_PROXY_HEADERS=true
+          --env LOG_LEVEL=warning
+          template-app:smoke
+
+      - name: Wait for production image
+        run: >-
+          curl --fail --silent --show-error --retry 30 --retry-delay 1
+          --retry-connrefused --header 'x-forwarded-proto: https'
+          --header 'host: app.example.com' http://127.0.0.1:4000/
+
+      - name: Run production browser smoke
+        working-directory: frontend
+        env:
+          PRODUCTION_BASE_URL: http://127.0.0.1:4000
+        run: npx playwright test --config=playwright.production.config.ts
+
+      - name: Show production image logs on failure
+        if: failure()
+        run: docker logs template-app-smoke
+
+      - name: Stop production image
+        if: always()
+        run: docker rm --force template-app-smoke || true

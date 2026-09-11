@@ -58,9 +58,36 @@ if config_env() == :prod do
       You can generate one by calling: mix phx.gen.secret
       """
 
-  host = System.get_env("PHX_HOST") || "example.com"
+  host =
+    case System.get_env("PHX_HOST") do
+      nil ->
+        raise "PHX_HOST is required in production"
+
+      value ->
+        if value == "" or Regex.match?(~r/[\s\/:]/, value) do
+          raise "PHX_HOST must be a hostname without a scheme, port, or path"
+        end
+
+        value
+    end
+
   port = String.to_integer(System.get_env("PORT") || "4000")
-  force_ssl = System.get_env("FORCE_SSL") == "true"
+
+  force_ssl =
+    case System.get_env("FORCE_SSL") do
+      "true" -> true
+      nil -> false
+      "false" -> false
+      _ -> raise "FORCE_SSL must be true or false"
+    end
+
+  if not force_ssl do
+    raise "FORCE_SSL=true is required for the production HTTPS topology"
+  end
+
+  if System.get_env("TRUST_PROXY_HEADERS") != "true" do
+    raise "TRUST_PROXY_HEADERS=true is required behind the HTTPS reverse proxy"
+  end
 
   config :template_app, :dns_cluster_query, System.get_env("DNS_CLUSTER_QUERY")
 
@@ -74,8 +101,7 @@ if config_env() == :prod do
       ip: {0, 0, 0, 0, 0, 0, 0, 0},
       port: port
     ],
-    secret_key_base: secret_key_base,
-    force_ssl: force_ssl
+    secret_key_base: secret_key_base
 
   config :template_app,
     token_signing_secret:
@@ -93,14 +119,44 @@ if config_env() == :prod do
 
       value ->
         case URI.parse(value) do
-          %URI{scheme: scheme, host: host, path: path, query: nil, fragment: nil, userinfo: nil}
-          when scheme in ["http", "https"] and is_binary(host) and path in [nil, ""] ->
+          %URI{scheme: "https", host: host, path: path, query: nil, fragment: nil, userinfo: nil}
+          when is_binary(host) and path in [nil, ""] ->
             value
 
           _ ->
-            raise "FRONTEND_URL must be one exact http(s) origin without a path"
+            raise "FRONTEND_URL must be one exact HTTPS origin without a path"
         end
     end
+
+  api_origin =
+    case System.get_env("VITE_API_URL") do
+      nil ->
+        nil
+
+      "" ->
+        nil
+
+      value ->
+        case URI.parse(value) do
+          %URI{
+            scheme: "https",
+            host: host,
+            port: port,
+            path: path,
+            query: nil,
+            fragment: nil,
+            userinfo: nil
+          }
+          when is_binary(host) and path in [nil, ""] ->
+            "https://#{host}#{if port, do: ":#{port}", else: ""}"
+
+          _ ->
+            raise "VITE_API_URL must be an absolute HTTPS origin without a path"
+        end
+    end
+
+  refresh_cookie_same_site =
+    if frontend_url == "https://#{host}", do: "Lax", else: "None"
 
   config :cors_plug,
     origin: [frontend_url],
@@ -109,6 +165,11 @@ if config_env() == :prod do
     expose: [],
     credentials: true,
     max_age: 86400
+
+  config :template_app,
+    api_origin: api_origin,
+    refresh_cookie_same_site: refresh_cookie_same_site,
+    secure_cookies: true
 
   # ## SSL Support
   #

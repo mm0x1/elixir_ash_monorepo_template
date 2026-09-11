@@ -93,7 +93,7 @@ defmodule TemplateAppWeb.Endpoint do
   end
 
   defp put_hsts_header(conn) do
-    if Application.get_env(:template_app, :env) == :prod do
+    if Application.get_env(:template_app, :env) == :prod and conn.scheme == :https do
       Plug.Conn.put_resp_header(
         conn,
         "strict-transport-security",
@@ -105,15 +105,15 @@ defmodule TemplateAppWeb.Endpoint do
   end
 
   defp put_csp_header(conn) do
-    # More restrictive CSP for production
     csp_policy =
       if Application.get_env(:template_app, :env) == :prod do
         "default-src 'self'; " <>
-          "script-src 'self' https://cdnjs.cloudflare.com; " <>
-          "style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com; " <>
+          "script-src 'self'; " <>
+          "style-src 'self'; " <>
           "img-src 'self' data: https:; " <>
           "font-src 'self' data:; " <>
-          "connect-src 'self'; " <>
+          "connect-src #{connect_src_policy()}; " <>
+          "object-src 'none'; " <>
           "frame-ancestors 'none'; " <>
           "base-uri 'self'; " <>
           "form-action 'self';"
@@ -129,5 +129,11 @@ defmodule TemplateAppWeb.Endpoint do
       end
 
     Plug.Conn.put_resp_header(conn, "content-security-policy", csp_policy)
+  end
+
+  defp connect_src_policy do
+    ["'self'", Application.get_env(:template_app, :api_origin)]
+    |> Enum.reject(&is_nil/1)
+    |> Enum.join(" ")
   end
 end

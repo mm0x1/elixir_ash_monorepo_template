@@ -108,6 +108,10 @@ npm run test:unit:related -- src/lib/path/to/file.ts
 npm run test:e2e              # Full Playwright run
 npm run test:e2e:ui           # Playwright UI mode
 npm run build && npm run preview # Preview the SPA with client-side fallback
+
+# Run the combined production-image browser smoke against a running release.
+PRODUCTION_BASE_URL=http://127.0.0.1:4000 npx playwright test \
+  --config=playwright.production.config.ts
 ```
 
 Install the browser used by the E2E project when needed:
@@ -118,13 +122,15 @@ npx playwright install chromium
 
 ## Environment Variables
 
-| Variable        | Description                                                  |
-| --------------- | ------------------------------------------------------------ |
-| `VITE_API_URL`  | Optional absolute API URL for hosted/static deployments      |
-| `VITE_APP_NAME` | Optional application label; not currently consumed by source |
+| Variable        | Description                                                   |
+| --------------- | ------------------------------------------------------------- |
+| `VITE_API_URL`  | Optional exact HTTPS API origin for hosted/static deployments |
+| `VITE_APP_NAME` | Optional application label; not currently consumed by source  |
 
 The root `.env.example` contains the development defaults. Vite only exposes
 variables prefixed with `VITE_` to browser code.
 
-The production Docker image accepts `VITE_API_URL` as a build argument when the
-frontend is hosted separately from the Phoenix release.
+The production Docker image accepts `VITE_API_URL` as a build argument. It must
+be empty for the combined same-origin release or an exact HTTPS origin for a
+separately hosted API. The build rejects paths, credentials, query strings, and
+non-HTTPS API URLs.

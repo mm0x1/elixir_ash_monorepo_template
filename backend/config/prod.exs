@@ -1,6 +1,10 @@
 import Config
 
 config :template_app, TemplateAppWeb.Endpoint,
+  force_ssl: [
+    hsts: true,
+    rewrite_on: [:x_forwarded_proto, :x_forwarded_host, :x_forwarded_port]
+  ],
   session: [
     store: :cookie,
     key: "_template_app_key",

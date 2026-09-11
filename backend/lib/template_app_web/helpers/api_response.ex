@@ -6,52 +6,58 @@ defmodule TemplateAppWeb.Helpers.ApiResponse do
   so the API speaks a single, consistent shape.
   """
 
-  import Plug.Conn, only: [put_status: 2]
+  import Plug.Conn, only: [put_resp_header: 3, put_status: 2]
   import Phoenix.Controller, only: [json: 2]
 
   require Logger
 
   # ── Success helpers ──────────────────────────────────────────────────
 
-  def success(conn, data), do: json(conn, data)
+  def success(conn, data), do: conn |> no_store() |> json(data)
 
   def success(conn, data, status) do
     conn
     |> put_status(status)
+    |> no_store()
     |> json(data)
   end
 
-  def message(conn, message), do: json(conn, %{message: message})
+  def message(conn, message), do: conn |> no_store() |> json(%{message: message})
 
   # ── Error helpers ────────────────────────────────────────────────────
 
   def bad_request(conn, message) do
     conn
     |> put_status(400)
+    |> no_store()
     |> json(%{error: "bad_request", message: message})
   end
 
   def unauthorized(conn, code, message) do
     conn
     |> put_status(401)
+    |> no_store()
     |> json(%{error: code, message: message})
   end
 
   def forbidden(conn, _error, message \\ "Not allowed") do
     conn
     |> put_status(403)
+    |> no_store()
     |> json(%{error: "forbidden", message: message})
   end
 
   def not_found(conn, message) do
     conn
     |> put_status(404)
+    |> no_store()
     |> json(%{error: "not_found", message: message})
   end
 
   def validation_error_static(conn, message) do
     conn
     |> put_status(422)
+    |> no_store()
     |> json(%{error: "validation_error", message: message, messages: [message]})
   end
 
@@ -60,6 +66,7 @@ defmodule TemplateAppWeb.Helpers.ApiResponse do
 
     conn
     |> put_status(422)
+    |> no_store()
     |> json(%{
       error: "validation_error",
       message: List.first(messages) || fallback_message,
@@ -72,8 +79,11 @@ defmodule TemplateAppWeb.Helpers.ApiResponse do
 
     conn
     |> put_status(500)
+    |> no_store()
     |> json(%{error: "internal_error", message: "Something went wrong"})
   end
+
+  defp no_store(conn), do: put_resp_header(conn, "cache-control", "no-store")
 
   # ── Error formatting ─────────────────────────────────────────────────
 

@@ -81,6 +81,7 @@ defmodule TemplateAppWeb.AccountControllerTest do
       assert %{"recovery_codes" => plain_codes, "user" => _} = json_response(conn, 200)
       assert is_list(plain_codes)
       assert plain_codes != []
+      assert get_resp_header(conn, "cache-control") == ["no-store"]
 
       {:ok, reloaded} = Accounts.get_by_username("codeowner")
       assert Enum.all?(reloaded.recovery_codes, &String.starts_with?(&1, "$argon2id$"))
