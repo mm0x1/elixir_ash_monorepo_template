@@ -30,6 +30,12 @@ http://127.0.0.1:4000. Vite proxies local `/auth`, `/account`, and `/health`
 requests to Phoenix, so `VITE_API_URL` is not needed locally. Override `PORT`
 or other local settings in `.env` when needed.
 
+The local PostgreSQL Compose service binds to `127.0.0.1` by default, and the
+credentials in `.env.example` are for local development only. To allow another
+local machine to connect intentionally, set `DATABASE_BIND_ADDRESS=0.0.0.0`
+in an ignored `.env` override and restrict access at the network boundary. Do
+not use that override or the predictable local credentials in production.
+
 Tilt is the recommended workflow because it waits for database, backend, and
 frontend readiness and reruns the relevant setup when `.env`, dependency,
 configuration, migration, or seed files change. A root `.env` change restarts

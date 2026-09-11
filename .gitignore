@@ -61,8 +61,14 @@ npm-debug.log
 
 # Env Vars (never commit secrets)
 .env
-.env.local
-.env.*.local
+.env.*
+!.env.example
+**/.env
+**/.env.*
+!**/.env.example
+
+# Claude Code machine-local settings
+.claude/settings.local.json
 
 # =============================================================================
 # IDE & Editor
