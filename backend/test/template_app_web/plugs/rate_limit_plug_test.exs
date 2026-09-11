@@ -3,14 +3,6 @@ defmodule TemplateAppWeb.Plugs.RateLimitPlugTest do
 
   alias TemplateAppWeb.Plugs.RateLimitPlug
 
-  setup do
-    # Override env to enable rate limiting in this test
-    original = Application.get_env(:template_app, :env)
-    Application.put_env(:template_app, :env, :dev)
-    on_exit(fn -> Application.put_env(:template_app, :env, original) end)
-    :ok
-  end
-
   test "allows requests under the limit", %{conn: conn} do
     conn = %{conn | remote_ip: {10, 0, 0, System.unique_integer([:positive])}}
     opts = RateLimitPlug.init(action: :login)
@@ -32,5 +24,46 @@ defmodule TemplateAppWeb.Plugs.RateLimitPlugTest do
     assert result.halted
     assert result.status == 429
     assert get_resp_header(result, "retry-after") != []
+  end
+
+  test "does not trust forwarded IP headers from an untrusted peer", %{conn: conn} do
+    conn =
+      conn
+      |> Map.put(:remote_ip, {10, 0, 0, 1})
+      |> put_req_header("x-forwarded-for", "192.0.2.1")
+
+    refute RateLimitPlug.client_ip(conn) == {192, 0, 2, 1}
+    assert RateLimitPlug.client_ip(conn) == {10, 0, 0, 1}
+  end
+
+  test "uses a forwarded IP only for a configured trusted peer", %{conn: conn} do
+    conn =
+      conn
+      |> Map.put(:remote_ip, {10, 0, 0, 2})
+      |> put_req_header("x-forwarded-for", "192.0.2.2, 10.0.0.2")
+
+    assert RateLimitPlug.client_ip(conn, [{10, 0, 0, 2}]) == {192, 0, 2, 2}
+  end
+
+  test "limits an account dimension across different IPs", %{conn: conn} do
+    limits = %{login: %{ip: {100, :timer.minutes(1)}, account: {1, :timer.minutes(1)}}}
+    username = "account-#{System.unique_integer([:positive])}"
+    opts = RateLimitPlug.init(action: :login, limits: limits)
+
+    first =
+      conn
+      |> Map.put(:remote_ip, {10, 0, 0, 3})
+      |> Map.put(:params, %{"username" => username})
+      |> RateLimitPlug.call(opts)
+
+    second =
+      conn
+      |> Map.put(:remote_ip, {10, 0, 0, 4})
+      |> Map.put(:params, %{"username" => username})
+      |> RateLimitPlug.call(opts)
+
+    refute first.halted
+    assert second.halted
+    assert second.status == 429
   end
 end

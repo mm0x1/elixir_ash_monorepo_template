@@ -66,6 +66,7 @@ config :template_app,
 
 # SQL query logs include bound values; keep credentials and hashes out of logs.
 config :template_app, TemplateApp.Repo, log: false
+config :template_app, trusted_proxy_ips: []
 
 # Configures the endpoint
 config :template_app, TemplateAppWeb.Endpoint,

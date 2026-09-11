@@ -131,9 +131,11 @@ This template is designed for side projects and prototyping. Be aware of these t
 - **Refresh-token rotation** — refresh destroys the old database token and creates a replacement.
   Token reuse detection beyond old-token invalidation is not implemented; a stolen current token
   remains usable until it is rotated, invalidated, or expires after 7 days.
-- **Rate limiting** — auth endpoints are rate-limited per IP via Hammer (login: 5/min, register:
-  3/min, reset password: 5/hr). Adjust limits in
-  `TemplateAppWeb.Plugs.RateLimitPlug`.
+- **Rate limiting** — login, registration, refresh, reset completion, and device logout are
+  rate-limited by IP; login, registration, and reset also use a hashed account dimension. The
+  default limits are login 5/min, registration 3/min, refresh 10/min, reset 5/hr, and logout
+  20/min. Hammer's ETS backend is single-node; configure a shared limiter before scaling across
+  nodes. Forwarded IPs are ignored unless the proxy address is listed in `TRUSTED_PROXY_IPS`.
 - **HTTPS** — production requires `FORCE_SSL=true` and `TRUST_PROXY_HEADERS=true` behind a
   TLS-terminating reverse proxy. The proxy must set the forwarded scheme before the release
   emits HSTS or serves credential-bearing cookies.

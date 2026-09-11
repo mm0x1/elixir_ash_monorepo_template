@@ -90,6 +90,18 @@ if config_env() == :prod do
     raise "TRUST_PROXY_HEADERS=true is required behind the HTTPS reverse proxy"
   end
 
+  trusted_proxy_ips =
+    System.get_env("TRUSTED_PROXY_IPS", "")
+    |> String.split(",", trim: true)
+    |> Enum.map(fn value ->
+      case value |> String.trim() |> to_charlist() |> :inet.parse_address() do
+        {:ok, ip} -> ip
+        {:error, :einval} -> raise "TRUSTED_PROXY_IPS contains an invalid IP address"
+      end
+    end)
+
+  config :template_app, trusted_proxy_ips: trusted_proxy_ips
+
   config :template_app, :dns_cluster_query, System.get_env("DNS_CLUSTER_QUERY")
 
   config :template_app, TemplateAppWeb.Endpoint,

@@ -28,7 +28,9 @@ defmodule TemplateAppWeb.AuthController do
 
   plug(RateLimitPlug, [action: :login] when action in [:login])
   plug(RateLimitPlug, [action: :register] when action in [:register])
+  plug(RateLimitPlug, [action: :refresh] when action in [:refresh])
   plug(RateLimitPlug, [action: :reset_password] when action in [:reset_password])
+  plug(RateLimitPlug, [action: :logout] when action in [:logout])
 
   @refresh_token_cookie "_template_app_refresh"
   @refresh_token_max_age 7 * 24 * 60 * 60
