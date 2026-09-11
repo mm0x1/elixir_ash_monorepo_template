@@ -10,26 +10,23 @@ defmodule TemplateAppWeb.AuthResetControllerTest do
   # chain. Shared sandbox mode lets those processes see the test's data.
   use TemplateAppWeb.ConnCase, async: false
 
+  import Ecto.Query
   import TemplateApp.UserFixtures
 
   alias TemplateApp.Accounts
+  alias TemplateApp.Accounts.RefreshSessions
   alias TemplateApp.Accounts.Resources.RefreshToken
 
   defp create_refresh_token(user) do
-    {:ok, token} =
-      RefreshToken
-      |> Ash.Changeset.for_create(:create, %{
-        user_id: user.id,
-        device_name: "test-device",
-        version: user.token_version
-      })
-      |> Ash.create()
+    {:ok, refresh_secret} = RefreshSessions.issue(user, "test-device")
+    secret_hash = :crypto.hash(:sha256, refresh_secret)
+    token = TemplateApp.Repo.one!(from(t in RefreshToken, where: t.secret_hash == ^secret_hash))
 
-    token
+    %{id: token.id, secret: refresh_secret}
   end
 
-  defp with_refresh_cookie(token_id) do
-    Plug.Test.put_req_cookie(build_conn(), "_template_app_refresh", token_id)
+  defp with_refresh_cookie(refresh_secret) do
+    Plug.Test.put_req_cookie(build_conn(), "_template_app_refresh", refresh_secret)
   end
 
   # ---------------------------------------------------------------------------
@@ -92,7 +89,7 @@ defmodule TemplateAppWeb.AuthResetControllerTest do
 
       assert %{"error" => "unauthorized"} = json_response(me_conn, 401)
 
-      refresh_conn = post(with_refresh_cookie(refresh_token.id), ~p"/auth/refresh")
+      refresh_conn = post(with_refresh_cookie(refresh_token.secret), ~p"/auth/refresh")
       assert %{"error" => "invalid_refresh_token"} = json_response(refresh_conn, 401)
 
       {:ok, updated_user} = Accounts.get_user_by_id(user.id)

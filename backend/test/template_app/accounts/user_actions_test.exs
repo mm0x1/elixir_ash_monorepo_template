@@ -11,17 +11,13 @@ defmodule TemplateApp.Accounts.UserActionsTest do
   import TemplateApp.UserFixtures
 
   alias TemplateApp.Accounts
+  alias TemplateApp.Accounts.RefreshSessions
   alias TemplateApp.Accounts.Resources.RefreshToken
 
   defp create_refresh_token(user) do
-    {:ok, token} =
-      RefreshToken
-      |> Ash.Changeset.for_create(:create, %{
-        user_id: user.id,
-        device_name: "test-device",
-        version: user.token_version
-      })
-      |> Ash.create()
+    {:ok, refresh_secret} = RefreshSessions.issue(user, "test-device")
+    secret_hash = :crypto.hash(:sha256, refresh_secret)
+    token = TemplateApp.Repo.one!(from(t in RefreshToken, where: t.secret_hash == ^secret_hash))
 
     token
   end

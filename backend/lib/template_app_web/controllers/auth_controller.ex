@@ -3,10 +3,10 @@ defmodule TemplateAppWeb.AuthController do
   Authentication controller for hybrid token auth.
 
   Handles:
-  - Login: Validates credentials, creates refresh token, returns access token
+  - Login: Validates credentials, creates a refresh session, returns access token
   - Register: Creates user, generates tokens
-  - Refresh: Validates refresh token cookie, returns new access token
-  - Logout: Deletes specific refresh token, clears cookie
+  - Refresh: Validates a refresh-secret cookie, returns new access token
+  - Logout: Deletes the specific refresh session, clears cookie
   - Logout All: Increments user.token_version, invalidates all refresh tokens
   """
 
@@ -20,7 +20,6 @@ defmodule TemplateAppWeb.AuthController do
   alias TemplateApp.Accounts
   alias TemplateApp.Accounts.JWT
   alias TemplateApp.Accounts.RefreshSessions
-  alias TemplateApp.Accounts.Resources.RefreshToken
   alias TemplateApp.Accounts.Validations.ValidatePasswordPolicy
   alias TemplateAppWeb.Helpers.ApiResponse
   alias TemplateAppWeb.Plugs.RateLimitPlug
@@ -115,11 +114,11 @@ defmodule TemplateAppWeb.AuthController do
   end
 
   def refresh(conn, _params) do
-    with {:ok, refresh_token_id} <- get_refresh_token_cookie(conn),
-         {:ok, %{access_token: access_token, refresh_token: new_refresh_token}} <-
-           RefreshSessions.rotate(refresh_token_id) do
+    with {:ok, refresh_secret} <- get_refresh_token_cookie(conn),
+         {:ok, %{access_token: access_token, refresh_secret: new_refresh_secret}} <-
+           RefreshSessions.rotate(refresh_secret) do
       conn
-      |> set_refresh_cookie(new_refresh_token.id)
+      |> set_refresh_cookie(new_refresh_secret)
       |> ApiResponse.success(%{
         access_token: access_token,
         expires_in: JWT.access_token_lifetime()
@@ -162,8 +161,8 @@ defmodule TemplateAppWeb.AuthController do
 
   def logout(conn, _params) do
     case get_refresh_token_cookie(conn) do
-      {:ok, refresh_token_id} ->
-        case RefreshSessions.revoke(refresh_token_id) do
+      {:ok, refresh_secret} ->
+        case RefreshSessions.revoke(refresh_secret) do
           {:ok, :revoked} ->
             conn
             |> delete_refresh_cookie()
@@ -250,9 +249,9 @@ defmodule TemplateAppWeb.AuthController do
     with {:ok, user} <-
            Ash.load(user, [:has_recovery_codes, :recovery_codes_count], authorize?: false),
          {:ok, access_token} <- JWT.generate_access_token(user),
-         {:ok, refresh_token} <- create_refresh_token(conn, user) do
+         {:ok, refresh_secret} <- RefreshSessions.issue(user, get_device_name(conn)) do
       conn
-      |> set_refresh_cookie(refresh_token.id)
+      |> set_refresh_cookie(refresh_secret)
       |> ApiResponse.success(
         %{
           access_token: access_token,
@@ -268,18 +267,6 @@ defmodule TemplateAppWeb.AuthController do
     end
   end
 
-  defp create_refresh_token(conn, user) do
-    device_name = get_device_name(conn)
-
-    RefreshToken
-    |> Ash.Changeset.for_create(:create, %{
-      user_id: user.id,
-      device_name: device_name,
-      version: user.token_version
-    })
-    |> Ash.create()
-  end
-
   defp get_device_name(conn) do
     case get_req_header(conn, "user-agent") do
       [ua | _] -> String.slice(ua, 0, 255)
@@ -291,12 +278,12 @@ defmodule TemplateAppWeb.AuthController do
     case conn.cookies[@refresh_token_cookie] do
       nil -> {:error, :no_cookie}
       "" -> {:error, :no_cookie}
-      token_id -> {:ok, token_id}
+      refresh_secret -> {:ok, refresh_secret}
     end
   end
 
-  defp set_refresh_cookie(conn, token_id) do
-    put_resp_cookie(conn, @refresh_token_cookie, token_id,
+  defp set_refresh_cookie(conn, refresh_secret) do
+    put_resp_cookie(conn, @refresh_token_cookie, refresh_secret,
       http_only: true,
       secure: secure_cookies?(),
       same_site: refresh_cookie_same_site(),

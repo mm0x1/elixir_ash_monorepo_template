@@ -24,4 +24,9 @@ defmodule TemplateApp.Accounts.AshAdminVisibilityTest do
       assert AshAdmin.Resource.destroy_actions(resource) == []
     end
   end
+
+  test "refresh bearer digests are not public resource attributes" do
+    assert Ash.Resource.Info.public_attribute(RefreshToken, :secret_hash) == nil
+    assert Ash.Resource.Info.attribute(RefreshToken, :secret_hash).sensitive?
+  end
 end

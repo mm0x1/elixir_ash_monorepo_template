@@ -3,7 +3,8 @@ defmodule TemplateApp.Accounts.Resources.RefreshToken do
   Refresh token resource for hybrid token authentication.
 
   Each refresh token is stored in the database and associated with a user.
-  The token ID is stored in an HttpOnly cookie on the client.
+  The raw refresh secret is stored in an HttpOnly cookie on the client while
+  only its SHA-256 digest is persisted.
 
   Token validation checks:
   1. Token exists in database
@@ -30,7 +31,7 @@ defmodule TemplateApp.Accounts.Resources.RefreshToken do
     destroy_actions []
   end
 
-  alias TemplateApp.Accounts.Changes.SetTokenExpiry
+  alias TemplateApp.Accounts.Changes.{GenerateRefreshSecret, SetTokenExpiry}
 
   @refresh_token_lifetime_days 7
 
@@ -51,8 +52,13 @@ defmodule TemplateApp.Accounts.Resources.RefreshToken do
       argument :version, :integer, allow_nil?: false
 
       change manage_relationship(:user_id, :user, type: :append)
+      change GenerateRefreshSecret
       change set_attribute(:version, arg(:version))
       change {SetTokenExpiry, lifetime_days: @refresh_token_lifetime_days}
+
+      # The raw secret is returned only by the issuance action and is never
+      # populated by a database read.
+      metadata :plain_refresh_secret, :string, allow_nil?: false
     end
 
     destroy :revoke do
@@ -63,6 +69,12 @@ defmodule TemplateApp.Accounts.Resources.RefreshToken do
       get? true
       argument :id, :uuid, allow_nil?: false
       filter expr(id == ^arg(:id))
+    end
+
+    read :by_secret_hash do
+      get? true
+      argument :secret_hash, :binary, allow_nil?: false, sensitive?: true
+      filter expr(secret_hash == ^arg(:secret_hash))
     end
 
     read :by_user do
@@ -86,6 +98,14 @@ defmodule TemplateApp.Accounts.Resources.RefreshToken do
 
   attributes do
     uuid_primary_key :id
+
+    attribute :secret_hash, :binary do
+      allow_nil? false
+      public? false
+      sensitive? true
+      writable? false
+      description "SHA-256 digest of the refresh bearer secret"
+    end
 
     attribute :device_name, :string do
       allow_nil? true
@@ -113,5 +133,9 @@ defmodule TemplateApp.Accounts.Resources.RefreshToken do
     belongs_to :user, TemplateApp.Accounts.Resources.User do
       allow_nil? false
     end
+  end
+
+  identities do
+    identity :unique_secret_hash, [:secret_hash]
   end
 end

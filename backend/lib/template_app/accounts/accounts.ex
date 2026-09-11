@@ -52,9 +52,18 @@ defmodule TemplateApp.Accounts do
     resource Token
 
     resource RefreshToken do
+      define :create_refresh_session,
+        args: [:user_id, :device_name, :version],
+        action: :create
+
       define :get_refresh_token_by_id,
         args: [:id],
         action: :by_id
+
+      define :get_refresh_token_by_secret_hash,
+        args: [:secret_hash],
+        action: :by_secret_hash,
+        get?: true
 
       define :get_refresh_tokens_for_user,
         args: [:user_id],

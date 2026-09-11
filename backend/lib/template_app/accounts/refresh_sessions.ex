@@ -1,21 +1,30 @@
 defmodule TemplateApp.Accounts.RefreshSessions do
   @moduledoc "Atomic operations for custom REST refresh sessions."
 
+  alias TemplateApp.Accounts
   alias TemplateApp.Accounts.JWT
   alias TemplateApp.Accounts.Resources.{RefreshToken, User}
 
+  @doc "Issues a refresh session and returns its raw cookie secret."
+  def issue(user, device_name) do
+    with {:ok, refresh_token} <-
+           Accounts.create_refresh_session(user.id, device_name, user.token_version, actor: user) do
+      issued_secret(refresh_token)
+    end
+  end
+
   @doc "Atomically consumes a refresh token and creates its replacement."
-  def rotate(token_id) do
-    transact(fn -> rotate_in_transaction(token_id) end)
+  def rotate(refresh_secret) do
+    transact(fn -> rotate_in_transaction(refresh_secret) end)
   end
 
   @doc "Revokes the refresh session identified by a cookie value."
-  def revoke(token_id) do
-    transact(fn -> revoke_in_transaction(token_id) end)
+  def revoke(refresh_secret) do
+    transact(fn -> revoke_in_transaction(refresh_secret) end)
   end
 
-  defp rotate_in_transaction(token_id) do
-    with {:ok, refresh_token} <- locked_refresh_token(token_id),
+  defp rotate_in_transaction(refresh_secret) do
+    with {:ok, refresh_token} <- locked_refresh_token(refresh_secret),
          :ok <- not_expired(refresh_token),
          {:ok, user} <- locked_user(refresh_token.user_id),
          :ok <- matching_version(user, refresh_token),
@@ -23,7 +32,13 @@ defmodule TemplateApp.Accounts.RefreshSessions do
          :ok <- consume(refresh_token, user) do
       case create_replacement(refresh_token, user) do
         {:ok, replacement} ->
-          %{access_token: access_token, refresh_token: replacement}
+          case issued_secret(replacement) do
+            {:ok, replacement_secret} ->
+              %{access_token: access_token, refresh_secret: replacement_secret}
+
+            {:error, _reason} ->
+              Ash.DataLayer.rollback(RefreshToken, {:session_error, :rotation_failed})
+          end
 
         {:error, _error} ->
           Ash.DataLayer.rollback(RefreshToken, {:session_error, :rotation_failed})
@@ -33,8 +48,8 @@ defmodule TemplateApp.Accounts.RefreshSessions do
     end
   end
 
-  defp revoke_in_transaction(token_id) do
-    with {:ok, refresh_token} <- locked_refresh_token(token_id),
+  defp revoke_in_transaction(refresh_secret) do
+    with {:ok, refresh_token} <- locked_refresh_token(refresh_secret),
          {:ok, user} <- locked_user(refresh_token.user_id) do
       case consume(refresh_token, user) do
         :ok -> {:session_result, :revoked}
@@ -45,13 +60,20 @@ defmodule TemplateApp.Accounts.RefreshSessions do
     end
   end
 
-  defp locked_refresh_token(token_id) do
-    case Ash.get(RefreshToken, token_id, lock: :for_update) do
+  defp locked_refresh_token(refresh_secret) when is_binary(refresh_secret) do
+    query =
+      RefreshToken
+      |> Ash.Query.for_read(:by_secret_hash, %{secret_hash: hash_secret(refresh_secret)})
+      |> Ash.Query.lock(:for_update)
+
+    case Ash.read_one(query) do
       {:ok, nil} -> {:error, :token_not_found}
       {:ok, refresh_token} -> {:ok, refresh_token}
       {:error, _error} -> {:error, :token_not_found}
     end
   end
+
+  defp locked_refresh_token(_refresh_secret), do: {:error, :token_not_found}
 
   defp locked_user(user_id) do
     case Ash.get(User, user_id, lock: :for_update) do
@@ -86,14 +108,21 @@ defmodule TemplateApp.Accounts.RefreshSessions do
   end
 
   defp create_replacement(refresh_token, user) do
-    RefreshToken
-    |> Ash.Changeset.for_create(:create, %{
-      user_id: user.id,
-      device_name: refresh_token.device_name,
-      version: user.token_version
-    })
-    |> Ash.create(actor: user)
+    Accounts.create_refresh_session(
+      user.id,
+      refresh_token.device_name,
+      user.token_version,
+      actor: user
+    )
   end
+
+  defp issued_secret(%{__metadata__: %{plain_refresh_secret: refresh_secret}})
+       when is_binary(refresh_secret),
+       do: {:ok, refresh_secret}
+
+  defp issued_secret(_refresh_token), do: {:error, :session_creation_failed}
+
+  defp hash_secret(refresh_secret), do: :crypto.hash(:sha256, refresh_secret)
 
   defp transact(fun) do
     case Ash.transact([RefreshToken, User], fun) do

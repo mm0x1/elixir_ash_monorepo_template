@@ -7,7 +7,10 @@ defmodule TemplateAppWeb.AuthControllerTest do
   import Ecto.Query
   import TemplateApp.UserFixtures
 
+  alias TemplateApp.Accounts
+  alias TemplateApp.Accounts.RefreshSessions
   alias TemplateApp.Accounts.Resources.RefreshToken
+  alias TemplateApp.Repo
 
   require Ash.Query
 
@@ -28,22 +31,19 @@ defmodule TemplateAppWeb.AuthControllerTest do
   end
 
   # Builds a new conn with the given refresh cookie set
-  defp with_refresh_cookie(token_id) do
-    Plug.Test.put_req_cookie(build_conn(), @refresh_cookie, token_id)
+  defp with_refresh_cookie(refresh_secret) do
+    Plug.Test.put_req_cookie(build_conn(), @refresh_cookie, refresh_secret)
   end
 
-  # Creates a RefreshToken in the database directly (test-process DB access)
+  # Issues a refresh session through the application boundary and reloads its
+  # database row by digest so tests never treat the database ID as a cookie.
   defp create_refresh_token(user) do
-    {:ok, token} =
-      RefreshToken
-      |> Ash.Changeset.for_create(:create, %{
-        user_id: user.id,
-        device_name: "test-device",
-        version: user.token_version
-      })
-      |> Ash.create()
+    {:ok, refresh_secret} = RefreshSessions.issue(user, "test-device")
 
-    token
+    {:ok, token} =
+      Accounts.get_refresh_token_by_secret_hash(:crypto.hash(:sha256, refresh_secret))
+
+    %{id: token.id, secret: refresh_secret}
   end
 
   defp expired_access_token(user) do
@@ -77,7 +77,20 @@ defmodule TemplateAppWeb.AuthControllerTest do
       assert %{"access_token" => token, "user" => user} = json_response(conn, 200)
       assert is_binary(token)
       assert user["username"] == "logintest"
-      assert {:ok, _cookie_id} = get_resp_cookie(conn)
+      assert {:ok, refresh_secret} = get_resp_cookie(conn)
+      assert byte_size(refresh_secret) == 43
+      user_id = user["id"]
+
+      assert [secret_hash] =
+               Repo.all(
+                 from(t in RefreshToken, where: t.user_id == ^user_id, select: t.secret_hash)
+               )
+
+      assert secret_hash == :crypto.hash(:sha256, refresh_secret)
+      refute secret_hash == refresh_secret
+
+      assert {:ok, stored_token} = Accounts.get_refresh_token_by_secret_hash(secret_hash)
+      refute Map.has_key?(stored_token.__metadata__, :plain_refresh_secret)
       assert get_resp_header(conn, "cache-control") == ["no-store"]
     end
 
@@ -177,14 +190,14 @@ defmodule TemplateAppWeb.AuthControllerTest do
       user = create_user()
       old_token = create_refresh_token(user)
 
-      conn = post(with_refresh_cookie(old_token.id), ~p"/auth/refresh")
+      conn = post(with_refresh_cookie(old_token.secret), ~p"/auth/refresh")
 
       assert %{"access_token" => access_token} = json_response(conn, 200)
       assert is_binary(access_token)
       assert get_resp_header(conn, "cache-control") == ["no-store"]
 
-      {:ok, new_cookie_id} = get_resp_cookie(conn)
-      assert new_cookie_id != old_token.id
+      {:ok, new_secret} = get_resp_cookie(conn)
+      assert new_secret != old_token.secret
 
       assert {:ok, nil} =
                RefreshToken
@@ -196,11 +209,11 @@ defmodule TemplateAppWeb.AuthControllerTest do
       user = create_user()
       token = create_refresh_token(user)
 
-      first_conn = post(with_refresh_cookie(token.id), ~p"/auth/refresh")
+      first_conn = post(with_refresh_cookie(token.secret), ~p"/auth/refresh")
       assert %{"access_token" => _} = json_response(first_conn, 200)
-      {:ok, rotated_id} = get_resp_cookie(first_conn)
+      {:ok, rotated_secret} = get_resp_cookie(first_conn)
 
-      second_conn = post(with_refresh_cookie(rotated_id), ~p"/auth/refresh")
+      second_conn = post(with_refresh_cookie(rotated_secret), ~p"/auth/refresh")
       assert %{"access_token" => _} = json_response(second_conn, 200)
     end
 
@@ -211,7 +224,7 @@ defmodule TemplateAppWeb.AuthControllerTest do
       responses =
         [1, 2]
         |> Enum.map(fn _ ->
-          Task.async(fn -> post(with_refresh_cookie(token.id), ~p"/auth/refresh") end)
+          Task.async(fn -> post(with_refresh_cookie(token.secret), ~p"/auth/refresh") end)
         end)
         |> Task.await_many(15_000)
 
@@ -228,10 +241,10 @@ defmodule TemplateAppWeb.AuthControllerTest do
       user = create_user()
       token = create_refresh_token(user)
 
-      first_conn = post(with_refresh_cookie(token.id), ~p"/auth/refresh")
+      first_conn = post(with_refresh_cookie(token.secret), ~p"/auth/refresh")
       assert %{"access_token" => _} = json_response(first_conn, 200)
 
-      replay_conn = post(with_refresh_cookie(token.id), ~p"/auth/refresh")
+      replay_conn = post(with_refresh_cookie(token.secret), ~p"/auth/refresh")
       assert %{"error" => "invalid_refresh_token"} = json_response(replay_conn, 401)
     end
 
@@ -241,12 +254,43 @@ defmodule TemplateAppWeb.AuthControllerTest do
       assert %{"error" => "no_refresh_token"} = json_response(conn, 401)
     end
 
-    test "returns 401 when refresh cookie contains a non-existent token ID", %{conn: _conn} do
-      fake_id = Ecto.UUID.generate()
-      conn = post(with_refresh_cookie(fake_id), ~p"/auth/refresh")
+    test "returns 401 when refresh cookie contains an invalid secret", %{conn: _conn} do
+      invalid_secret = Base.url_encode64(:crypto.strong_rand_bytes(32), padding: false)
+      conn = post(with_refresh_cookie(invalid_secret), ~p"/auth/refresh")
 
       assert %{"error" => "invalid_refresh_token"} = json_response(conn, 401)
       assert conn.resp_cookies[@refresh_cookie].max_age == 0
+    end
+
+    test "rejects the legacy database ID as a refresh cookie", %{conn: _conn} do
+      user = create_user()
+      token = create_refresh_token(user)
+
+      conn = post(with_refresh_cookie(token.id), ~p"/auth/refresh")
+
+      assert %{"error" => "invalid_refresh_token"} = json_response(conn, 401)
+      assert conn.resp_cookies[@refresh_cookie].max_age == 0
+    end
+
+    test "database uniqueness rejects a duplicate refresh-secret digest", %{conn: _conn} do
+      user = create_user()
+      token = create_refresh_token(user)
+      expires_at = DateTime.utc_now() |> DateTime.add(7, :day) |> DateTime.truncate(:microsecond)
+
+      assert_raise Postgrex.Error, fn ->
+        Repo.query!(
+          """
+          INSERT INTO refresh_tokens (secret_hash, version, expires_at, user_id)
+          VALUES ($1, $2, $3, $4)
+          """,
+          [
+            :crypto.hash(:sha256, token.secret),
+            user.token_version,
+            expires_at,
+            Ecto.UUID.dump!(user.id)
+          ]
+        )
+      end
     end
 
     test "returns 401 when refresh token is expired", %{conn: _conn} do
@@ -259,7 +303,7 @@ defmodule TemplateAppWeb.AuthControllerTest do
         set: [expires_at: ~U[2020-01-01 00:00:00Z]]
       )
 
-      conn = post(with_refresh_cookie(token.id), ~p"/auth/refresh")
+      conn = post(with_refresh_cookie(token.secret), ~p"/auth/refresh")
 
       assert %{"error" => "token_expired"} = json_response(conn, 401)
       assert conn.resp_cookies[@refresh_cookie].max_age == 0
@@ -277,7 +321,7 @@ defmodule TemplateAppWeb.AuthControllerTest do
       )
 
       # The refresh token still has version: 1, but user now has token_version: 2
-      conn = post(with_refresh_cookie(token.id), ~p"/auth/refresh")
+      conn = post(with_refresh_cookie(token.secret), ~p"/auth/refresh")
 
       assert %{"error" => "token_revoked"} = json_response(conn, 401)
       assert conn.resp_cookies[@refresh_cookie].max_age == 0
@@ -301,7 +345,7 @@ defmodule TemplateAppWeb.AuthControllerTest do
       token = create_refresh_token(user)
       access_token = access_token_for(user)
 
-      base_conn = with_refresh_cookie(token.id)
+      base_conn = with_refresh_cookie(token.secret)
 
       conn =
         base_conn
@@ -328,7 +372,7 @@ defmodule TemplateAppWeb.AuthControllerTest do
       token = create_refresh_token(user)
 
       conn =
-        token.id
+        token.secret
         |> with_refresh_cookie()
         |> put_req_header("authorization", "Bearer #{expired_access_token(user)}")
         |> post(~p"/auth/logout")
@@ -346,10 +390,10 @@ defmodule TemplateAppWeb.AuthControllerTest do
       user = create_user()
       token = create_refresh_token(user)
 
-      first_conn = post(with_refresh_cookie(token.id), ~p"/auth/logout")
+      first_conn = post(with_refresh_cookie(token.secret), ~p"/auth/logout")
       assert %{"message" => "Logged out successfully"} = json_response(first_conn, 200)
 
-      second_conn = post(with_refresh_cookie(token.id), ~p"/auth/logout")
+      second_conn = post(with_refresh_cookie(token.secret), ~p"/auth/logout")
       assert %{"message" => "Already logged out"} = json_response(second_conn, 200)
 
       malformed_conn = post(with_refresh_cookie("not-a-uuid"), ~p"/auth/logout")
@@ -377,10 +421,10 @@ defmodule TemplateAppWeb.AuthControllerTest do
       assert logout_conn.resp_cookies[@refresh_cookie].max_age == 0
 
       # The pre-existing refresh token should now be rejected
-      refresh_conn = post(with_refresh_cookie(token.id), ~p"/auth/refresh")
+      refresh_conn = post(with_refresh_cookie(token.secret), ~p"/auth/refresh")
       assert %{"error" => "token_revoked"} = json_response(refresh_conn, 401)
 
-      second_refresh_conn = post(with_refresh_cookie(second_token.id), ~p"/auth/refresh")
+      second_refresh_conn = post(with_refresh_cookie(second_token.secret), ~p"/auth/refresh")
       assert %{"error" => "token_revoked"} = json_response(second_refresh_conn, 401)
     end
   end
