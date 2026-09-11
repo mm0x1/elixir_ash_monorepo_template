@@ -51,7 +51,7 @@ describe('profile page', () => {
 				requestStarted = true;
 				await responseReady;
 				return HttpResponse.json({
-					user: { ...user, username: 'late-name' }
+					user: { ...user, username: 'late_name' }
 				});
 			})
 		);
@@ -59,7 +59,7 @@ describe('profile page', () => {
 		const u = userEvent.setup();
 		render(ProfilePage);
 		await u.clear(screen.getByLabelText('Username'));
-		await u.type(screen.getByLabelText('Username'), 'late-name');
+		await u.type(screen.getByLabelText('Username'), 'late_name');
 		await u.click(screen.getByRole('button', { name: 'Update Username' }));
 		await vi.waitFor(() => expect(requestStarted).toBe(true));
 
