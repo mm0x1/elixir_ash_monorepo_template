@@ -30,6 +30,28 @@ http://127.0.0.1:4000. Vite proxies local `/auth`, `/account`, and `/health`
 requests to Phoenix, so `VITE_API_URL` is not needed locally. Override `PORT`
 or other local settings in `.env` when needed.
 
+Tilt is the recommended workflow because it waits for database, backend, and
+frontend readiness and reruns the relevant setup when `.env`, dependency,
+configuration, migration, or seed files change. A root `.env` change restarts
+the native services; restart `mise run tilt` if a process was stopped while
+editing environment values.
+
+The manual fallback uses three terminals:
+
+```bash
+# terminal 1
+mise run db:up
+# terminal 2
+(cd backend && mix setup && mix phx.server)
+# terminal 3
+(cd frontend && npm ci && npm run dev)
+```
+
+Run the backend with a custom local port by setting it before starting both
+native servers, for example `PORT=4100 mise run tilt` or `PORT=4100 mix
+phx.server`. Vite reads the same root `PORT` value for its API proxy. The
+frontend remains on `127.0.0.1:5173`.
+
 The REST API accepts JSON for credential-bearing login, registration, reset, and
 account mutations. The endpoint rejects form-encoded credential requests and
 limits request bodies to 16 KiB. Browser preflights are handled before Phoenix
@@ -89,6 +111,12 @@ refuses privileged accounts outside `MIX_ENV=dev` with
 production database. The development-only backend dashboard is available at
 http://127.0.0.1:4000/dev/dashboard. The development-only Ash Admin login is at
 http://127.0.0.1:4000/dev/admin/sign-in.
+
+Tidewave is local-only and is served at `/tidewave/mcp` by the development
+Phoenix process. `opencode.json` reads `{env:PORT}`, so launch OpenCode with the
+same exported `PORT` value as Phoenix, including `PORT=4000` when using the
+default without a `.env` file. Legacy `.mcp.json` clients use `${PORT:-4000}`.
+Neither configuration should point Tidewave at a production or shared server.
 
 ## TypeScript setup
 

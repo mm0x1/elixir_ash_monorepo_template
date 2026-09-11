@@ -34,6 +34,13 @@ port. The local server loads the repository-root environment and proxies
 `/auth`, `/account`, and `/health` to Phoenix. Leave `VITE_API_URL` empty for
 local development; set it for a separately hosted or production frontend.
 
+If Tilt is unavailable, start PostgreSQL with `mise run db:up`, run `mix setup`
+and `mix phx.server` from `backend/` in one terminal, then run `npm ci` and
+`npm run dev` here in another. Set the same root `PORT` value before both
+servers, for example `PORT=4100`, so Vite proxies to the custom backend port.
+Tilt watches `.env`; restart the workflow after changing environment values if
+the native processes are no longer running.
+
 ## Password Recovery
 
 Recovery codes are generated while signed in from the account recovery page and

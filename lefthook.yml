@@ -2,43 +2,43 @@
 # Automatically checks code quality for both Elixir and frontend code
 
 pre-commit:
-  parallel: true
-  commands:
+  # Fixers must finish and stage their changes before read-only checks run.
+  piped: true
+  jobs:
     # Elixir formatting - auto-fix and stage changes
-    elixir-format:
+    - name: elixir-format
       glob: "backend/{lib,test,config,priv}/**/*.{ex,exs}"
       root: "backend/"
       run: mix format {staged_files}
       stage_fixed: true
 
-    # Elixir code quality - strict mode
-    elixir-credo:
-      glob: "backend/{lib,test,config}/**/*.{ex,exs}"
-      root: "backend/"
-      run: mix credo --strict --all
-
-    # Elixir compilation - ensure no warnings
-    elixir-compile:
-      glob: "backend/{lib,test,config}/**/*.{ex,exs}"
-      root: "backend/"
-      run: MIX_ENV=dev mix compile --warnings-as-errors
-
     # Frontend linting - auto-fix and stage changes
-    frontend-lint:
+    - name: frontend-lint
       glob: "frontend/**/*.{svelte,ts,js}"
       root: "frontend/"
       run: npx eslint --fix {staged_files}
       stage_fixed: true
 
+    # Read-only checks intentionally follow all fixers above.
+    - name: elixir-compile
+      glob: "backend/{lib,test,config}/**/*.{ex,exs}"
+      root: "backend/"
+      run: MIX_ENV=dev mix compile --warnings-as-errors
+
+    - name: elixir-credo
+      glob: "backend/{lib,test,config}/**/*.{ex,exs}"
+      root: "backend/"
+      run: mix credo --strict --all
+
     # Prettier check for the files selected by the hook. The full check remains
     # available through `mise run frontend:format:check`.
-    frontend-format:
+    - name: frontend-format
       glob: "frontend/**/*.{svelte,ts,js}"
       root: "frontend/"
       run: npx prettier --check {staged_files}
 
     # Svelte type checking
-    frontend-check:
+    - name: frontend-check
       glob: "frontend/**/*.{svelte,ts}"
       root: "frontend/"
       run: npm run check

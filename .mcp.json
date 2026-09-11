@@ -2,7 +2,7 @@
   "mcpServers": {
     "tidewave": {
       "type": "http",
-      "url": "http://127.0.0.1:4000/tidewave/mcp"
+      "url": "http://127.0.0.1:${PORT:-4000}/tidewave/mcp"
     },
     "hexdocs": {
       "command": "npx",

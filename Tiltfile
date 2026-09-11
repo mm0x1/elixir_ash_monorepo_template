@@ -1,11 +1,12 @@
 # Local development environment for the native Phoenix/Vite workflow.
 docker_compose("docker-compose.db.yml", wait=True)
 backend_port = int(os.getenv("PORT", "4000"))
+root_env_deps = [".env"]
 
 local_resource(
     "hooks",
     cmd=["mise", "run", "hooks:install"],
-    deps=["mise.toml", "lefthook.yml"],
+    deps=["mise.toml", "lefthook.yml"] + root_env_deps,
 )
 
 local_resource(
@@ -16,12 +17,15 @@ local_resource(
     serve_dir="backend",
     deps=[
         "mise.toml",
+        ".env",
         "backend/mix.exs",
         "backend/mix.lock",
         "backend/config/config.exs",
         "backend/config/dev.exs",
+        "backend/config/prod.exs",
         "backend/config/runtime.exs",
         "backend/priv/repo/migrations",
+        "backend/priv/resource_snapshots",
         "backend/priv/repo/seeds.exs",
     ],
     resource_deps=["database"],
@@ -46,8 +50,14 @@ local_resource(
     serve_dir="frontend",
     deps=[
         "mise.toml",
+        ".env",
         "frontend/package.json",
         "frontend/package-lock.json",
+        "frontend/.npmrc",
+        "frontend/svelte.config.js",
+        "frontend/vite.config.ts",
+        "frontend/tsconfig.json",
+        "frontend/src/app.html",
     ],
     resource_deps=["backend"],
     readiness_probe=probe(

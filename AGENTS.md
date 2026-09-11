@@ -25,11 +25,17 @@ Run these from the repository root:
 ```bash
 mise install
 mise run setup       # local dependencies, database setup, seeds, and hooks
-mise run tilt        # PostgreSQL, Phoenix, Vite, and the Tilt UI
+mise run tilt        # PostgreSQL, Phoenix, Vite, readiness probes, and Tilt UI
 mise run check       # backend quality, codegen, frontend check/lint/format
 mise run test        # backend, frontend unit, and browser tests
 mise run build       # backend compile and frontend build
 ```
+
+Manual fallback when Tilt is unavailable: run `mise run db:up`, then `mix setup
+&& mix phx.server` from `backend/` and `npm ci && npm run dev` from `frontend/`
+in separate terminals. Set one root `PORT` value before both native servers when
+using a custom backend port. Tilt watches `.env` and restarts resources that
+consume it; treat environment changes as a workflow restart boundary.
 
 Database tasks:
 
@@ -81,7 +87,7 @@ Do not run watch or UI-mode test commands as agent verification. They are intera
 ## Agent Tooling and Safety
 
 - OpenCode MCP servers are configured in the project `opencode.json`. The legacy `.mcp.json` is retained only for clients that use that schema.
-- Tidewave connects to the development Phoenix endpoint at `/tidewave/mcp`. Start Phoenix first. It provides privileged IEx and SQL access and must remain local-development-only. The project OpenCode URL targets the default `PORT=4000`; update `opencode.json` when using a custom backend port.
+- Tidewave connects to the development Phoenix endpoint at `/tidewave/mcp`. Start Phoenix first. It provides privileged IEx and SQL access and must remain local-development-only. `opencode.json` resolves `{env:PORT}` and `.mcp.json` resolves `${PORT:-4000}`; set the same custom `PORT` used by Phoenix before starting either MCP client.
 - HexDocs MCP is configured for the backend dependency context. Use it for version-accurate dependency documentation rather than guessing APIs.
 - `mix setup` and the repository seed scripts create predictable development credentials. Never reuse them in production.
 - Never expose `VITE_*` variables as secrets. Vite bundles them into browser code at build time. Signing keys, passwords, database credentials, and private API keys do not belong in frontend environment variables.

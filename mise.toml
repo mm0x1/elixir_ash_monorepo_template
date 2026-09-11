@@ -51,6 +51,10 @@ description = "Start PostgreSQL, Phoenix, Vite, and the Tilt UI"
 tools.tilt = "0.37.7"
 run = "bash scripts/tilt.sh"
 
+[tasks."tilt:validate"]
+description = "Validate Tilt wrapper syntax and lifecycle paths"
+run = "bash scripts/validate-tilt.sh"
+
 [tasks.reset]
 description = "Drop, recreate, migrate, and seed the local database"
 confirm = "Reset the local database? This deletes all local data."
