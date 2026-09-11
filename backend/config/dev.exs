@@ -9,7 +9,7 @@ config :template_app, TemplateApp.Repo,
   database: System.get_env("DATABASE_NAME") || "template_app_dev",
   port: String.to_integer(System.get_env("DATABASE_PORT") || "5432"),
   stacktrace: true,
-  show_sensitive_data_on_connection_error: true,
+  show_sensitive_data_on_connection_error: false,
   pool_size: String.to_integer(System.get_env("DATABASE_POOL_SIZE") || "10")
 
 # For development, we disable any cache and enable
@@ -22,6 +22,7 @@ config :template_app, TemplateAppWeb.Endpoint,
   # Binding to loopback ipv4 address prevents access from other machines.
   # Change to `ip: {0, 0, 0, 0}` to allow access from other machines.
   http: [ip: {127, 0, 0, 1}, port: String.to_integer(System.get_env("PORT") || "4000")],
+  http_options: [log_exceptions_with_status_codes: []],
   check_origin: false,
   code_reloader: true,
   debug_errors: true,

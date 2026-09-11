@@ -85,7 +85,7 @@ defmodule TemplateApp.Logging.AshLogger do
         action: metadata[:action],
         action_type: metadata[:action_type],
         kind: metadata[:kind],
-        reason: inspect(metadata[:reason])
+        error_category: error_category(metadata[:reason])
       )
     end
   end
@@ -108,4 +108,11 @@ defmodule TemplateApp.Logging.AshLogger do
       config()[:log_level] || :debug
     end
   end
+
+  defp error_category(reason) when is_atom(reason), do: Atom.to_string(reason)
+
+  defp error_category(%{__struct__: module}) when is_atom(module),
+    do: "exception:" <> inspect(module)
+
+  defp error_category(_reason), do: "unknown"
 end

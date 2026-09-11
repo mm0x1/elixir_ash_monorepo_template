@@ -5,6 +5,7 @@ config :template_app, TemplateAppWeb.Endpoint,
     hsts: true,
     rewrite_on: [:x_forwarded_proto, :x_forwarded_host, :x_forwarded_port]
   ],
+  http_options: [log_exceptions_with_status_codes: []],
   session: [
     store: :cookie,
     key: "_template_app_key",

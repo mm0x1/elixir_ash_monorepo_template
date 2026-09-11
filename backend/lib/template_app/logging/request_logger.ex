@@ -18,7 +18,31 @@ defmodule TemplateApp.Logging.RequestLogger do
 
   @behaviour Plug
 
+  import Plug.Conn, only: [get_resp_header: 2]
+
   require Logger
+
+  @sensitive_keys MapSet.new([
+                    "password",
+                    "passwordconfirmation",
+                    "newpassword",
+                    "recoverycode",
+                    "recoverycodes",
+                    "hashedpassword",
+                    "token",
+                    "accesstoken",
+                    "refreshtoken",
+                    "refreshid",
+                    "sessionid",
+                    "jti",
+                    "authorization",
+                    "cookie",
+                    "cookies",
+                    "secret",
+                    "csrf-token",
+                    "x-csrf-token",
+                    "csrftoken"
+                  ])
 
   @impl true
   def init(opts), do: opts
@@ -34,6 +58,7 @@ defmodule TemplateApp.Logging.RequestLogger do
         duration_ms = Float.round(duration_us / 1000, 2)
 
         Logger.debug("Request completed",
+          request_id: List.first(get_resp_header(conn, "x-request-id")),
           method: conn.method,
           path: conn.request_path,
           status: conn.status,
@@ -51,19 +76,38 @@ defmodule TemplateApp.Logging.RequestLogger do
 
   defp sanitize_params(params) when is_map(params) do
     params
-    |> Map.drop([
-      "password",
-      "password_confirmation",
-      "token",
-      "secret",
-      "_csrf_token",
-      "recovery_code",
-      "new_password"
-    ])
+    |> redact_params()
     |> inspect(limit: 500, pretty: false)
   end
 
   defp sanitize_params(params), do: inspect(params, limit: 500)
+
+  @doc false
+  def redact_params(params), do: redact_value(params)
+
+  defp redact_value(%_{}), do: "[REDACTED]"
+
+  defp redact_value(%{} = map) do
+    Enum.into(map, %{}, fn {key, value} ->
+      if sensitive_key?(key) do
+        {key, "[REDACTED]"}
+      else
+        {key, redact_value(value)}
+      end
+    end)
+  end
+
+  defp redact_value(list) when is_list(list), do: Enum.map(list, &redact_value/1)
+  defp redact_value(value), do: value
+
+  defp sensitive_key?(key) when is_atom(key), do: key |> Atom.to_string() |> sensitive_key?()
+
+  defp sensitive_key?(key) when is_binary(key) do
+    normalized = String.replace(String.downcase(key), ~r/[^a-z0-9-]/, "")
+    MapSet.member?(@sensitive_keys, normalized)
+  end
+
+  defp sensitive_key?(_key), do: false
 
   defp format_ip(ip) when is_tuple(ip) do
     ip

@@ -255,8 +255,8 @@ defmodule TemplateAppWeb.AuthController do
         status
       )
     else
-      {:error, reason} ->
-        Logger.error("Failed to create tokens: #{inspect(reason)}")
+      {:error, _reason} ->
+        Logger.error("Failed to create authentication tokens", error_category: "authentication")
         ApiResponse.internal_error(conn, "Failed to create authentication tokens")
     end
   end

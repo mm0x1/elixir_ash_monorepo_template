@@ -64,6 +64,9 @@ config :template_app,
     TemplateApp.Accounts
   ]
 
+# SQL query logs include bound values; keep credentials and hashes out of logs.
+config :template_app, TemplateApp.Repo, log: false
+
 # Configures the endpoint
 config :template_app, TemplateAppWeb.Endpoint,
   url: [host: "localhost"],
@@ -106,7 +109,7 @@ config :logger, :default_formatter,
     :action,
     :action_type,
     :kind,
-    :reason,
+    :error_category,
 
     # Error tracking & correlation
     :error,
@@ -129,6 +132,44 @@ config :logger, :default_formatter,
 
 # Use Jason for JSON parsing in Phoenix
 config :phoenix, :json_library, Jason
+
+config :phoenix, :filter_parameters, [
+  "password",
+  "Password",
+  "PASSWORD",
+  "password_confirmation",
+  "Password_Confirmation",
+  "PASSWORD_CONFIRMATION",
+  "new_password",
+  "New_Password",
+  "NEW_PASSWORD",
+  "recovery_code",
+  "Recovery_Code",
+  "RECOVERY_CODE",
+  "recovery_codes",
+  "Recovery_Codes",
+  "RECOVERY_CODES",
+  "hashed_password",
+  "Hashed_Password",
+  "HASHED_PASSWORD",
+  "token",
+  "Token",
+  "TOKEN",
+  "access_token",
+  "Access_Token",
+  "ACCESS_TOKEN",
+  "refresh_token",
+  "Refresh_Token",
+  "REFRESH_TOKEN",
+  "authorization",
+  "Authorization",
+  "cookie",
+  "Cookie",
+  "COOKIE",
+  "secret",
+  "Secret",
+  "SECRET"
+]
 
 # Import environment specific config. This must remain at the bottom
 # of this file so it overrides the configuration defined above.

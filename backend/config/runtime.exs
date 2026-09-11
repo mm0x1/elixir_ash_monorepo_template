@@ -42,6 +42,7 @@ if config_env() == :prod do
     # ssl: true,
     url: database_url,
     pool_size: String.to_integer(System.get_env("DATABASE_POOL_SIZE") || "10"),
+    show_sensitive_data_on_connection_error: false,
     # For machines with several cores, consider starting multiple pools of `pool_size`
     # pool_count: 4,
     socket_options: maybe_ipv6

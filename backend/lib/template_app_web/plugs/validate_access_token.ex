@@ -38,8 +38,8 @@ defmodule TemplateAppWeb.Plugs.ValidateAccessToken do
       {:error, :token_version_mismatch} ->
         unauthorized(conn, "Token has been revoked")
 
-      {:error, reason} ->
-        Logger.warning("Access token validation failed: #{inspect(reason)}")
+      {:error, _reason} ->
+        Logger.warning("Access token validation failed", error_category: "authentication")
         unauthorized(conn, "Authentication failed")
     end
   end
