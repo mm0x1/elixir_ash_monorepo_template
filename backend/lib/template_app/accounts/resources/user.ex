@@ -8,7 +8,17 @@ defmodule TemplateApp.Accounts.Resources.User do
     domain: TemplateApp.Accounts,
     data_layer: AshPostgres.DataLayer,
     authorizers: [Ash.Policy.Authorizer],
-    extensions: [AshAuthentication, AshPhoenix]
+    extensions: [AshAdmin.Resource, AshAuthentication, AshPhoenix]
+
+  admin do
+    # The local admin surface is intentionally read-only. Passwords, recovery
+    # codes, sessions, and role changes stay outside this browser UI.
+    read_actions [:read]
+    generic_actions []
+    create_actions []
+    update_actions []
+    destroy_actions []
+  end
 
   alias TemplateApp.Accounts.Changes.{
     ConvertToRegistered,

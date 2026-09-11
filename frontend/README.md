@@ -54,7 +54,7 @@ src/
 │   ├── +layout.svelte
 │   ├── auth/
 │   ├── profile/
-│   └── dev/                  # Development-only component sandboxes
+│   └── dev/                  # Development-only component sandboxes (404 in production builds)
 └── app.html
 ```
 

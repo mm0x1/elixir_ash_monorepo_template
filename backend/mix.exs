@@ -100,9 +100,9 @@ defmodule TemplateApp.MixProject do
       setup: [
         "deps.get",
         "ash.setup",
-        "run priv/repo/seeds.exs"
+        &seed_privileged_accounts/1
       ],
-      "ecto.setup": ["ecto.create", "ecto.migrate", "run priv/repo/seeds.exs"],
+      "ecto.setup": ["ecto.create", "ecto.migrate", &seed_privileged_accounts/1],
       "ecto.reset": ["ecto.drop", "ecto.setup"],
       "codegen.dev": ["ash.codegen --dev"],
       "codegen.dry": ["ash.codegen --dry-run"],
@@ -129,5 +129,12 @@ defmodule TemplateApp.MixProject do
         "phx.digest"
       ]
     ]
+  end
+
+  defp seed_privileged_accounts(_args) do
+    # The script itself logs and refuses non-development execution. Keeping the
+    # call in the aliases makes production attempts observable instead of
+    # silently dropping the seed step.
+    Mix.Task.run("run", ["priv/repo/seeds.exs"])
   end
 end

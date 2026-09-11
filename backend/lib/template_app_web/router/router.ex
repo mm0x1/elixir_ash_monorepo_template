@@ -94,7 +94,7 @@ defmodule TemplateAppWeb.Router do
     get("/health", HealthController, :index)
   end
 
-  if Application.compile_env(:template_app, :dev_routes) do
+  if Application.compile_env(:template_app, :dev_routes, false) do
     import Phoenix.LiveDashboard.Router
     import AshAdmin.Router
 

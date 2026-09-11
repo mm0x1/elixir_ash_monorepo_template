@@ -13,6 +13,7 @@ defmodule TemplateApp.Accounts do
 
   admin do
     show? true
+    show_resources [User]
   end
 
   resources do

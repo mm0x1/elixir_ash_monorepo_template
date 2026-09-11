@@ -28,7 +28,7 @@ defmodule TemplateAppWeb.Endpoint do
     only: TemplateAppWeb.static_paths()
   )
 
-  if Code.ensure_loaded?(Tidewave) do
+  if Application.compile_env(:template_app, :dev_routes, false) and Code.ensure_loaded?(Tidewave) do
     plug(Tidewave)
   end
 

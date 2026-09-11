@@ -1,9 +1,34 @@
 alias TemplateApp.Accounts
 alias TemplateApp.Accounts.Resources.User
 require Ash.Query
+require Logger
 
 defmodule Seeder do
   def run do
+    if privileged_seeds_allowed?() do
+      seed_privileged_accounts()
+    else
+      Logger.warning(
+        "Privileged development seeds skipped: explicit local development configuration is required"
+      )
+
+      :ok
+    end
+  end
+
+  @doc false
+  def privileged_seeds_allowed?(environment, configured?) do
+    environment == :dev and configured? == true
+  end
+
+  defp privileged_seeds_allowed? do
+    privileged_seeds_allowed?(
+      Mix.env(),
+      Application.get_env(:template_app, :allow_privileged_seeds, false)
+    )
+  end
+
+  defp seed_privileged_accounts do
     IO.puts("Starting seeds...")
 
     IO.puts("1. Creating users with different roles...")

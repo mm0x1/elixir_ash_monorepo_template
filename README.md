@@ -49,7 +49,7 @@ HTTPS configuration, emits HSTS only for requests recognized as HTTPS, and
 sets refresh cookies to `Secure`. A separately hosted frontend uses
 `SameSite=None`; the combined same-origin release uses `SameSite=Lax`.
 
-Tilt waits for PostgreSQL, runs backend setup and seeds before Phoenix, installs
+Tilt waits for PostgreSQL, runs backend setup and local-only seeds before Phoenix, installs
 frontend dependencies and hooks, and exposes readiness, logs, and links in its
 UI. Source edits continue to use Phoenix reload and Vite HMR; dependency,
 configuration, migration, and seed changes rerun only the relevant setup.
@@ -57,7 +57,7 @@ Press `Ctrl+C` once to stop the native services and PostgreSQL while retaining
 the named database volume. If the wrapper is forcibly terminated, recover with
 `mise exec tilt@0.37.7 -- tilt down`.
 
-`mise run setup` remains available for one-shot dependency, migration, seed, and
+`mise run setup` remains available for one-shot dependency, migration, local-only seed, and
 hook preparation without starting application servers. Use `mise run db:up`,
 `mise run db:down`, and `mise run db:logs` for database-only work.
 
@@ -83,7 +83,10 @@ mise run frontend:test:e2e:ui      # Playwright UI mode
 `mise run reset` is destructive and intended for the local database only.
 
 The seeded accounts are `user/password123`, `admin/password123`, and
-`superadmin/password123`. The backend dashboard is available at
+`superadmin/password123` in explicit local development only. The seed script
+refuses privileged accounts outside `MIX_ENV=dev` with
+`allow_privileged_seeds: true`; never use these credentials against a shared or
+production database. The development-only backend dashboard is available at
 http://127.0.0.1:4000/dev/dashboard. The development-only Ash Admin login is at
 http://127.0.0.1:4000/dev/admin/sign-in.
 
@@ -144,3 +147,6 @@ This template is designed for side projects and prototyping. Be aware of these t
   emits HSTS or serves credential-bearing cookies.
 - **Signing secrets** — the app uses two separate secrets: `TOKEN_SIGNING_SECRET` (Joken JWTs) and
   `ASH_AUTH_SIGNING_SECRET` (AshAuthentication). Generate unique values with `mix phx.gen.secret 32`.
+- **Development admin** — `/dev` and `/admin` routes, Tidewave, predictable seed accounts, and
+  Ash Admin are local development conveniences. Production compiles without those routes, and
+  there is no admin-issued password reset path.

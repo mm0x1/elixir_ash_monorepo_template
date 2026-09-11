@@ -16,7 +16,10 @@ config :template_app, TemplateAppWeb.Endpoint,
     same_site: "Lax"
   ]
 
-config :template_app, :serve_frontend, true
+config :template_app,
+  dev_routes: false,
+  allow_privileged_seeds: false,
+  serve_frontend: true
 
 # Do not print debug messages in production
 config :logger, level: :info

@@ -4,7 +4,15 @@ defmodule TemplateApp.Accounts.Resources.Token do
     domain: TemplateApp.Accounts,
     data_layer: AshPostgres.DataLayer,
     authorizers: [Ash.Policy.Authorizer],
-    extensions: [AshAuthentication.TokenResource]
+    extensions: [AshAdmin.Resource, AshAuthentication.TokenResource]
+
+  admin do
+    read_actions []
+    generic_actions []
+    create_actions []
+    update_actions []
+    destroy_actions []
+  end
 
   postgres do
     table "tokens"
@@ -39,6 +47,7 @@ defmodule TemplateApp.Accounts.Resources.Token do
 
     create :revoke_token do
       description "Revoke a token. Creates a revocation token corresponding to the provided token."
+
       accept [:extra_data]
       argument :token, :string, allow_nil?: false, sensitive?: true
 
@@ -47,6 +56,7 @@ defmodule TemplateApp.Accounts.Resources.Token do
 
     create :revoke_jti do
       description "Revoke a token by JTI. Creates a revocation token corresponding to the provided jti."
+
       accept [:extra_data]
       argument :subject, :string, allow_nil?: false, sensitive?: true
       argument :jti, :string, allow_nil?: false, sensitive?: true
@@ -63,7 +73,7 @@ defmodule TemplateApp.Accounts.Resources.Token do
 
     destroy :expunge_expired do
       description "Deletes expired tokens."
-      change filter expr(expires_at < now())
+      change filter(expr(expires_at < now()))
     end
 
     update :revoke_all_stored_for_subject do

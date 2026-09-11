@@ -75,6 +75,7 @@ config :template_app, TemplateAppWeb.Endpoint,
 # Enable dev routes for dashboard and mailbox
 config :template_app,
   dev_routes: true,
+  allow_privileged_seeds: true,
   token_signing_secret:
     System.get_env("TOKEN_SIGNING_SECRET") || "jZNCXxZx2uWyAaKU6JLe937jroxossgL",
   ash_auth_signing_secret:

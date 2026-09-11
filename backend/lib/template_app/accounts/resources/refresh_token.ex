@@ -19,7 +19,16 @@ defmodule TemplateApp.Accounts.Resources.RefreshToken do
     otp_app: :template_app,
     domain: TemplateApp.Accounts,
     data_layer: AshPostgres.DataLayer,
-    authorizers: [Ash.Policy.Authorizer]
+    authorizers: [Ash.Policy.Authorizer],
+    extensions: [AshAdmin.Resource]
+
+  admin do
+    read_actions []
+    generic_actions []
+    create_actions []
+    update_actions []
+    destroy_actions []
+  end
 
   alias TemplateApp.Accounts.Changes.SetTokenExpiry
 
