@@ -262,3 +262,67 @@ jobs:
         run: |
           timeout 60s mise exec "tilt@${TILT_VERSION}" -- tilt down || true
           timeout 30s docker compose -f docker-compose.db.yml down || true
+
+  dependency-audit:
+    name: Dependency audit (informational)
+    runs-on: ubuntu-latest
+    continue-on-error: true
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install mise-managed tools
+        uses: jdx/mise-action@v4
+        with:
+          minimum_release_age: 7d
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Frontend audit
+        working-directory: frontend
+        continue-on-error: true
+        run: |
+          set +e
+          npm audit --audit-level=moderate --json >"${RUNNER_TEMP}/npm-audit.json"
+          audit_status=$?
+          set -e
+
+          node <<'NODE'
+          const fs = require('node:fs');
+          const report = JSON.parse(fs.readFileSync(process.env.RUNNER_TEMP + '/npm-audit.json', 'utf8'));
+
+          for (const [name, vulnerability] of Object.entries(report.vulnerabilities ?? {})) {
+            const advisories = (vulnerability.via ?? [])
+              .filter((entry) => typeof entry === 'object')
+              .map((entry) => entry.url ?? String(entry.source ?? 'unknown-advisory'));
+            const paths = vulnerability.nodes ?? [];
+            console.log(`${name}: advisories=${advisories.join(',') || 'dependency metadata'} paths=${paths.join(',') || 'unknown'}`);
+          }
+          NODE
+
+          exit "$audit_status"
+
+      - name: Frontend production audit
+        working-directory: frontend
+        continue-on-error: true
+        run: npm audit --omit=dev --audit-level=moderate
+
+      - name: Backend Hex audit
+        working-directory: backend
+        continue-on-error: true
+        run: |
+          mix deps.get
+          mix hex.audit 2>&1 | tee "${RUNNER_TEMP}/mix-hex-audit.txt"
+
+      - name: Upload dependency audit reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dependency-audit-reports
+          path: |
+            ${{ runner.temp }}/npm-audit.json
+            ${{ runner.temp }}/mix-hex-audit.txt
+          if-no-files-found: ignore
