@@ -145,8 +145,8 @@ defmodule TemplateAppWeb.AuthControllerTest do
 
   describe "POST /auth/refresh" do
     test "rotates the refresh token: new access token, new cookie, old token deleted", %{
-           conn: _conn
-         } do
+      conn: _conn
+    } do
       user = create_user()
       old_token = create_refresh_token(user)
 
