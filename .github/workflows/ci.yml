@@ -33,7 +33,7 @@ jobs:
           --health-retries 5
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Set up Elixir
         uses: erlef/setup-beam@v1
@@ -42,14 +42,14 @@ jobs:
           otp-version: ${{ env.OTP_VERSION }}
 
       - name: Set up Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
           cache-dependency-path: frontend/package-lock.json
 
       - name: Cache mix deps
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: |
             backend/deps
