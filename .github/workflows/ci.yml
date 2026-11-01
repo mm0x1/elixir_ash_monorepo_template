@@ -62,9 +62,14 @@ jobs:
         working-directory: backend
         run: mix deps.get
 
+      # Not `mix quality`: that alias also lints the frontend, whose deps aren't installed yet.
+      # The frontend is linted in its own step below.
       - name: Backend quality checks
         working-directory: backend
-        run: mix quality
+        run: |
+          mix format --check-formatted
+          mix credo --strict
+          mix compile --warnings-as-errors
 
       - name: Backend tests
         working-directory: backend
