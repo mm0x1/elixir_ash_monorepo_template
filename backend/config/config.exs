@@ -18,6 +18,7 @@ config :ash,
   keep_read_action_loads_when_loading?: false,
   default_actions_require_atomic?: true,
   read_action_after_action_hooks_in_order?: true,
+  default_string_length_count: :codepoints,
   bulk_actions_default_to_errors?: true
 
 config :spark,
